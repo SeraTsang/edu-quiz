@@ -1,2 +1,2 @@
 # edu-quiz
-Help figure out tricky and easily confused questions
+Analysis of Commonly Missed Questions on Teacher-Related Exams
