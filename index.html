@@ -37,6 +37,10 @@ button{font-family:inherit}
 @media(min-width:820px){.wrap{max-width:860px}.stat-row,.mode-list{grid-template-columns:repeat(2,1fr)}}
 .mini-prog{position:absolute;left:0;bottom:-1px;height:2px;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .3s;border-radius:0 2px 2px 0}
 
+#syncStatus{position:absolute;right:10px;top:53px;font-size:10px;color:#657083;background:#fff;border:1px solid var(--line);border-radius:8px;padding:2px 7px;z-index:5;cursor:pointer}
+#syncStatus[data-state="error"]{color:#b34834;border-color:#e9aaa1}
+#syncStatus[data-state="ok"]{color:#14846d}
+#syncStatus[data-state="pending"]{color:var(--brand)}
 /* ============ 主体 ============ */
 .main{height:calc(100vh - 55px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:12px 12px calc(24px + var(--safe))}
 .view{animation:fade .2s ease}
@@ -253,6 +257,7 @@ textarea.fld{min-height:110px;resize:vertical;line-height:1.6}
   </button>
   <button class="small-add" onclick="openChapterModal()" title="添加章节" aria-label="添加章节">＋</button>
   <button class="icon-btn" onclick="openSheet('more')" title="更多">☰</button>
+  <button id="syncStatus" type="button" data-state="local" onclick="syncClick()" title="点击重试同步">已保存本地</button>
   <div class="mini-prog" id="miniProg" style="width:0"></div>
 </header>
 
@@ -395,58 +400,242 @@ const BUILTIN=[
 const LS='edu_quiz_v2_';
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const DEFAULT_CH=()=>[{id:'ch_edu1',name:'教育学 · 第一章',icon:'📖',builtin:true,qs:BUILTIN.map((o,i)=>({id:'b'+(i+1),s:o.s,a:o.a,x:o.x,k:o.k}))}];
-let S={chapters:DEFAULT_CH(),answers:{},wrong:{},favorites:{},edits:{},last:{},cursor:{}};
+let S={chapters:DEFAULT_CH(),answers:{},answerMeta:{},clearMeta:{},wrong:{},wrongMeta:{},favorites:{},favoriteMeta:{},edits:{},editMeta:{},last:{},cursor:{}};
 let me=null, mode='chapter', selCh='ch_edu1', run=null;
 
-const saveLocal=()=>{try{localStorage.setItem(LS+'state',JSON.stringify(S))}catch(e){}};
-const loadLocal=()=>{try{const d=JSON.parse(localStorage.getItem(LS+'state'));if(d&&d.chapters)S=Object.assign(S,d)}catch(e){}};
-
+/* ==== 可靠进度：本地先写、逐题版本、云端校验、可恢复快照 ==== */
+const stateKey=()=>LS+'state'+(me?'_'+me.id:'');
+let syncTimer=null, syncBusy=false, syncAgain=false, syncRevision=0;
+let lastLocalError=false, lastSyncError='', initialSyncDone=false;
+let lastClock=0;
+const syncNow=()=>{lastClock=Math.max(Date.now(),lastClock+1);return lastClock};
+const safeObject=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
+const clone=v=>JSON.parse(JSON.stringify(v));
+function statusSync(label,state='local'){
+  const el=document.getElementById('syncStatus');if(!el)return;
+  el.textContent=label;
+  el.dataset.state=state;
+  el.title=lastSyncError||label;
+}
+function backupState(reason){
+  try{
+    const key=LS+'backups_'+(me?.id||'anonymous');
+    const list=JSON.parse(localStorage.getItem(key)||'[]');
+    list.unshift({date:new Date().toISOString(),reason,state:clone(S)});
+    localStorage.setItem(key,JSON.stringify(list.slice(0,6)));
+    return true;
+  }catch(err){console.warn('备份失败',err);return false}
+}
+function saveLocal(){
+  try{
+    const serialized=JSON.stringify(S);
+    localStorage.setItem(stateKey(),serialized);
+    // Maintain old localStorage key for existing browser data, but never read it as another user's state.
+    if(me)localStorage.setItem(LS+'last_account',me.id);
+    lastLocalError=false;
+    statusSync(me?'已保存本地 · 待云端同步':'已保存本地','local');
+    return true;
+  }catch(err){
+    lastLocalError=true;lastSyncError='本地保存失败：'+err.message;
+    statusSync('本地保存失败','error');toast('本地保存失败，请立即导出备份');return false;
+  }
+}
+function loadLocal(){
+  try{
+    const key=stateKey();
+    // Original app stored one unscoped copy. Only migrate once and only to the same recognized account.
+    let raw=localStorage.getItem(key);
+    if(!raw&&me){
+      const owner=localStorage.getItem(LS+'last_account');
+      if(!owner||owner===me.id)raw=localStorage.getItem(LS+'state');
+    }
+    const d=JSON.parse(raw||'null');
+    if(d&&Array.isArray(d.chapters))S=Object.assign(S,d);
+  }catch(err){console.warn('读取本地进度失败',err)}
+  S.answers=safeObject(S.answers);S.wrong=safeObject(S.wrong);
+  S.favorites=safeObject(S.favorites);S.edits=safeObject(S.edits);
+  S.last=safeObject(S.last);S.cursor=safeObject(S.cursor);
+  S.answerMeta=safeObject(S.answerMeta);S.clearMeta=safeObject(S.clearMeta);
+  S.editMeta=safeObject(S.editMeta);S.favoriteMeta=safeObject(S.favoriteMeta);
+  S.wrongMeta=safeObject(S.wrongMeta);
+}
+// Old progress has no timestamps: assign version 1 so it is retained and can merge.
+function normalizeProgress(d){
+  d=d||{};
+  const result={...d};
+  for(const k of ['answers','wrong','favorites','edits','cursor','last','answerMeta','clearMeta','editMeta','favoriteMeta','wrongMeta'])result[k]=safeObject(d[k]);
+  for(const [id] of Object.entries(result.answers))if(!result.answerMeta[id])result.answerMeta[id]=1;
+  for(const k of ['edits','favorites','wrong']){
+    const mk={edits:'editMeta',favorites:'favoriteMeta',wrong:'wrongMeta'}[k];
+    for(const id of Object.keys(result[k]))if(!result[mk][id])result[mk][id]=1;
+  }
+  return result;
+}
+function chapterOf(qid,chapters){return chapters.find(c=>c.qs?.some(q=>q.id===qid))?.id||''}
+function combineState(local,remote){
+  const a=normalizeProgress(local),b=normalizeProgress(remote);
+  const out={...a,answers:{},answerMeta:{},clearMeta:{},wrong:{},wrongMeta:{},favorites:{},favoriteMeta:{},edits:{},editMeta:{}};
+  const chapters=[...(a.chapters||[]),...(b.chapters||[])];
+  for(const id of new Set([...Object.keys(a.clearMeta),...Object.keys(b.clearMeta)]))
+    out.clearMeta[id]=Math.max(Number(a.clearMeta[id]||0),Number(b.clearMeta[id]||0));
+  const mergeField=(field,metaField,clearSensitive=false)=>{
+    for(const id of new Set([...Object.keys(a[metaField]),...Object.keys(b[metaField]),...Object.keys(a[field]),...Object.keys(b[field])])){
+      const ta=Number(a[metaField][id]||(Object.hasOwn(a[field],id)?1:0));
+      const tb=Number(b[metaField][id]||(Object.hasOwn(b[field],id)?1:0));
+      // Explicit new data beats old data; on equal old versions prefer local copy.
+      const src=tb>ta?b:a;
+      const t=Math.max(ta,tb);
+      const chapter=chapterOf(id,chapters);
+      const reset=clearSensitive?Number(out.clearMeta[chapter]||0):0;
+      if(t>0)out[metaField][id]=t;
+      if(t>reset&&Object.hasOwn(src[field],id))out[field][id]=src[field][id];
+    }
+  };
+  mergeField('answers','answerMeta',true);
+  mergeField('wrong','wrongMeta',true);
+  mergeField('favorites','favoriteMeta');
+  mergeField('edits','editMeta');
+  out.cursor={...b.cursor,...a.cursor};
+  out.last={...b.last,...a.last};
+  out.order=Array.from(new Set([...(a.order||[]),...(b.order||[])]));
+  out.builtinAdditions={...safeObject(b.builtinAdditions),...safeObject(a.builtinAdditions)};
+  return out;
+}
+function applyProgress(d){
+  for(const k of ['answers','answerMeta','wrong','wrongMeta','favorites','favoriteMeta','edits','editMeta','clearMeta','last','cursor'])S[k]=d[k]||{};
+  if(d.order?.length)S.order=d.order;
+}
+function cloudPayload(){
+  return {
+    answers:S.answers,answerMeta:S.answerMeta,clearMeta:S.clearMeta,
+    wrong:S.wrong,wrongMeta:S.wrongMeta,favorites:S.favorites,favoriteMeta:S.favoriteMeta,
+    edits:S.edits,editMeta:S.editMeta,last:S.last,cursor:S.cursor,order:S.order,
+    builtinAdditions:Object.fromEntries(S.chapters.filter(c=>c.builtin).map(c=>[c.id,c.qs.filter(q=>!/^b\d+$/.test(q.id))]))
+  };
+}
+function syncMergeCloud(d){
+  const merged=combineState({...S,builtinAdditions:cloudPayload().builtinAdditions},d);
+  applyProgress(merged);
+  Object.entries(d?.builtinAdditions||{}).forEach(([id,items])=>{
+    const c=S.chapters.find(ch=>ch.id===id&&ch.builtin);
+    if(!c||!Array.isArray(items))return;
+    const have=new Set(c.qs.map(q=>q.id));
+    for(const q of items)if(q&&q.id&&!have.has(q.id)){c.qs.push(q);have.add(q.id)}
+  });
+  saveLocal();
+}
 async function pullCloud(){
   if(!me)return;
-  const [{data:st},{data:cs}]=await Promise.all([
-    sb.from('v2_state').select('*').eq('user_id',me.id).maybeSingle(),
-    sb.from('v2_chapters').select('*').eq('user_id',me.id)
-  ]);
-  if(st&&st.data){
-    const d=st.data;
-    S.answers=d.answers||{};S.wrong=d.wrong||{};S.favorites=d.favorites||S.favorites||{};S.edits=d.edits||{};S.last=d.last||{};S.cursor=d.cursor||{};
-    if(d.order&&d.order.length)S.order=d.order;
-    // Built-in chapter additions were previously local-only; merge them from the account state.
-    Object.entries(d.builtinAdditions||{}).forEach(([id,items])=>{
-      const c=S.chapters.find(ch=>ch.id===id&&ch.builtin);
-      if(!c||!Array.isArray(items))return;
-      const have=new Set(c.qs.map(q=>q.id));
-      items.forEach(q=>{if(q&&q.id&&!have.has(q.id)){c.qs.push(q);have.add(q.id)}});
-    });
+  statusSync('正在读取云端…','pending');
+  const localSnapshot=clone(S);
+  try{
+    const [{data:st,error:e1},{data:cs,error:e2}]=await Promise.all([
+      sb.from('v2_state').select('*').eq('user_id',me.id).maybeSingle(),
+      sb.from('v2_chapters').select('*').eq('user_id',me.id)
+    ]);
+    if(e1||e2)throw e1||e2;
+    // Keep a snapshot before reconciliation, including when the cloud has fewer answers.
+    backupState('云端读取前');
+    if(cs?.length){
+      const custom=cs.map(r=>({id:r.id,name:r.name,icon:r.icon||'📘',qs:r.questions||[]}));
+      const ids=new Set(custom.map(c=>c.id));
+      S.chapters=custom.concat(S.chapters.filter(c=>!ids.has(c.id)&&c.builtin));
+    }
+    if(st?.data)syncMergeCloud(st.data);
+    if(!S.order?.length)S.order=S.chapters.map(c=>c.id);
+    initialSyncDone=true;
+    // Always reconcile merged fields back to the cloud; read-before-write prevents
+    // the old cloud snapshot from replacing newer local answer versions.
+    pushCloud();
+  }catch(err){
+    S=localSnapshot;initialSyncDone=false;
+    lastSyncError=err.message||String(err);
+    statusSync('云端读取失败 · 本地可用','error');
+    toast('云端同步失败，本地进度已保留');
   }
-  if(cs&&cs.length){
-    const custom=cs.map(r=>({id:r.id,name:r.name,icon:r.icon||'📘',qs:r.questions||[]}));
-    const ids=new Set(custom.map(c=>c.id));
-    S.chapters=custom.concat(S.chapters.filter(c=>!ids.has(c.id)&&c.builtin));
-    if(!S.order||!S.order.length)S.order=S.chapters.map(c=>c.id);
-  }
-  if(!S.order||!S.order.length)S.order=S.chapters.map(c=>c.id);
-  saveLocal();
 }
-let pushTimer=null;
 function pushCloud(){
-  saveLocal();
+  syncRevision++;
+  if(!saveLocal())return;
   if(!me)return;
-  clearTimeout(pushTimer);
-  pushTimer=setTimeout(async()=>{
-    await sb.from('v2_state').upsert({user_id:me.id,data:{
-      answers:S.answers,wrong:S.wrong,favorites:S.favorites,edits:S.edits,last:S.last,cursor:S.cursor,order:S.order,
-      builtinAdditions:Object.fromEntries(S.chapters.filter(c=>c.builtin).map(c=>[c.id,c.qs.filter(q=>!/^b\d+$/.test(q.id))]))
-    },updated_at:new Date().toISOString()});
-  },600);
+  statusSync('云端同步中…','pending');
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(flushCloud,350);
+}
+async function flushCloud(){
+  if(!me)return;
+  if(syncBusy){syncAgain=true;return;}
+  syncBusy=true;
+  const owner=me.id, startedRevision=syncRevision;
+  statusSync('云端同步中…','pending');
+  try{
+    // Read-before-write: merge with remote to avoid a stale browser wiping newer answers.
+    const {data:remote,error:readErr}=await sb.from('v2_state').select('data').eq('user_id',owner).maybeSingle();
+    if(readErr)throw readErr;
+    if(me?.id!==owner)return;
+    if(remote?.data)syncMergeCloud(remote.data);
+    const payload=cloudPayload();
+    const {error:writeErr}=await sb.from('v2_state').upsert({user_id:owner,data:payload,updated_at:new Date().toISOString()});
+    if(writeErr)throw writeErr;
+    // Check actual persisted data; avoid reporting success when data differs.
+    const {data:verified,error:verifyErr}=await sb.from('v2_state').select('data').eq('user_id',owner).maybeSingle();
+    if(verifyErr||!verified)throw verifyErr||new Error('云端回读失败');
+    if(me?.id!==owner)return;
+    const cloud=normalizeProgress(verified.data),expected=normalizeProgress(payload);
+    const fields=['answers','answerMeta','clearMeta','wrong','wrongMeta','favorites','favoriteMeta','edits','editMeta'];
+    if(fields.some(k=>JSON.stringify(Object.entries(cloud[k]).sort())!==JSON.stringify(Object.entries(expected[k]).sort())))
+      throw new Error('云端数据校验不一致');
+    lastSyncError='';
+    if(syncRevision===startedRevision&&!syncAgain)statusSync('云端已同步','ok');
+  }catch(err){
+    lastSyncError=err.message||String(err);
+    statusSync('同步失败 · 点击重试','error');
+    toast('云端同步失败，本地记录已保留');
+  }finally{
+    syncBusy=false;
+    if(syncAgain||syncRevision!==startedRevision){syncAgain=false;clearTimeout(syncTimer);syncTimer=setTimeout(flushCloud,350)}
+  }
 }
 async function pushChapters(){
-  saveLocal();
+  pushCloud();
   if(!me)return;
   const rows=S.chapters.filter(c=>!c.builtin).map(c=>({id:c.id,user_id:me.id,name:c.name,icon:c.icon,questions:c.qs,updated_at:new Date().toISOString()}));
-  if(rows.length)await sb.from('v2_chapters').upsert(rows);
-  pushCloud();
+  if(!rows.length)return;
+  try{
+    const {error}=await sb.from('v2_chapters').upsert(rows);
+    if(error)throw error;
+  }catch(err){lastSyncError='章节上传失败：'+err.message;statusSync('章节同步失败 · 点击重试','error');toast('章节上传失败，已保存在本地')}
 }
+function markAnswer(id){S.answerMeta[id]=syncNow();S.wrongMeta[id]=syncNow()}
+function listBackups(){
+  try{return JSON.parse(localStorage.getItem(LS+'backups_'+(me?.id||'anonymous'))||'[]')}
+  catch{return []}
+}
+function recoverBackup(i){
+  const b=listBackups()[i];if(!b)return toast('备份不存在');
+  if(!confirm('恢复 '+b.date+' 的本地备份？将先备份当前进度，恢复后会尝试同步到云端。'))return;
+  if(!backupState('恢复前'))return toast('当前数据备份失败，已取消恢复');
+  const next=combineState(b.state,S);
+  // Explicit restore is a new user action: answer entries in the chosen backup win.
+  const now=syncNow();
+  for(const [qid,v] of Object.entries(b.state.answers||{})){
+    next.answers[qid]=v;next.answerMeta[qid]=now;
+    if(b.state.wrong?.[qid])next.wrong[qid]=1;else delete next.wrong[qid];
+    next.wrongMeta[qid]=now;
+  }
+  for(const c of S.chapters){
+    if(c.qs?.some(q=>Object.hasOwn(b.state.answers||{},q.id)))next.clearMeta[c.id]=Math.max(next.clearMeta[c.id]||0,now-1);
+  }
+  S=Object.assign(S,next);pushCloud();closeSheet();refreshChrome();renderHome();toast('已恢复备份');
+}
+function syncClick(){
+  if(!me)return toast('仅本地存储');
+  const retryChapters=/章节上传失败/.test(lastSyncError);
+  lastSyncError='';
+  if(retryChapters)pushChapters();else pushCloud();
+}
+window.addEventListener('online',()=>{if(me)pushCloud()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&me&&lastSyncError)pushCloud()});
 
 /* ==== 工具 ==== */
 const $=id=>document.getElementById(id);
@@ -602,6 +791,7 @@ function toggleFavorite(){
   if(!run)return;
   const id=run.arr[run.idx].id;
   if(S.favorites[id])delete S.favorites[id];else S.favorites[id]=1;
+  S.favoriteMeta[id]=syncNow();
   pushCloud();renderRun();renderHome();
 }
 function pick(v){
@@ -610,6 +800,7 @@ function pick(v){
   if(currentAnswer(q)!==undefined)return;
   if(run.mode!=='chapter')run.responses[q.id]=v;
   S.answers[q.id]=v;
+  markAnswer(q.id);
   if(v===q.a)delete S.wrong[q.id];else S.wrong[q.id]=1;
   if(run.mode==='chapter'){
     const c=chById(run.chId),i=c.qs.findIndex(x=>x.id===q.id);
@@ -627,9 +818,9 @@ function askEdit(){
 let curSheet=null,sheetOkFn=()=>{};
 function openSheet(name,arg){
   curSheet=name;
-  $('sheetTitle').textContent={ch:'切换 / 管理章节',more:'更多',entry:'录入新题',edit:'修改解析',picker:'选题跳转',imp:'导入预览',migrate:'数据迁移',account:'账号'}[name]||'';
+  $('sheetTitle').textContent={ch:'切换 / 管理章节',more:'更多',entry:'录入新题',edit:'修改解析',picker:'选题跳转',imp:'导入预览',migrate:'数据迁移',account:'账号',backup:'恢复本地快照'}[name]||'';
   sheetOkFn={edit:saveEdit,entry:parseEntry,imp:confirmImp}[name]||(()=>{});
-  $('sheetBody').innerHTML=({ch:chBody,more:moreBody,entry:entryBody,edit:()=>editBody(arg),picker:pickerBody,imp:()=>impBody(arg),migrate:migBody,account:accBody}[name]||(()=>''))();
+  $('sheetBody').innerHTML=({ch:chBody,more:moreBody,entry:entryBody,edit:()=>editBody(arg),picker:pickerBody,imp:()=>impBody(arg),migrate:migBody,account:accBody,backup:backupBody}[name]||(()=>''))();
   const needFoot=['edit','entry','imp'].includes(name);
   $('sheetFoot').classList.toggle('hidden',!needFoot);
   if(name==='edit')$('sheetOk').textContent='保存解析';
@@ -714,9 +905,12 @@ function moreBody(){
 function resetCh(){
   const c=chById(selCh);
   if(!confirm('清空「'+c.name+'」的 '+c.qs.length+' 题作答记录和错题？'))return;
-  c.qs.forEach(q=>{delete S.answers[q.id];delete S.wrong[q.id]});
+  if(!backupState('清空章节：'+c.name))return toast('备份失败，为防丢失已取消清空');
+  const time=syncNow();
+  S.clearMeta[selCh]=time;
+  c.qs.forEach(q=>{delete S.answers[q.id];delete S.wrong[q.id];S.answerMeta[q.id]=time;S.wrongMeta[q.id]=time});
   delete S.cursor[selCh];
-  pushCloud();goHome();toast('已清空，收藏已保留');
+  pushCloud();goHome();toast('已清空，备份已保留');
 }
 
 /* ==== 选题 ==== */
@@ -750,10 +944,11 @@ function editBody(qid){
 sheetOkFn=()=>{};
 function saveEdit(){
   const v=$('editTa').value.trim(),g=$('editG').value.trim(),k=$('editK').value.trim();
-  if(!v){if(confirm('内容为空，恢复为原始解析、考点和记忆点？')){delete S.edits[editTarget];pushCloud();closeSheet();renderRun();toast('已恢复原解析')}return}
+  if(!v){if(confirm('内容为空，恢复为原始解析、考点和记忆点？')){delete S.edits[editTarget];S.editMeta[editTarget]=syncNow();pushCloud();closeSheet();renderRun();toast('已恢复原解析')}return}
   const q=run.arr[run.idx];
   if(v===q.x&&g===(q.g||'')&&k===(q.k||''))delete S.edits[editTarget];
   else S.edits[editTarget]={x:v,g,k};
+  S.editMeta[editTarget]=syncNow();
   pushCloud();closeSheet();renderRun();toast('已保存');
 }
 
@@ -911,7 +1106,12 @@ function migBody(){
   <div class="line-item" onclick="expBank()"><div class="ic">📦</div><div class="tx"><b>只导出章节包（分享用）</b><span>不含进度，可发给别人导入</span></div><div class="arw">↓</div></div>
   <div class="line-item" onclick="document.getElementById('migFile').click()"><div class="ic">📥</div><div class="tx"><b>导入章节包 / 备份</b><span>识别 chapters 字段；含 state 字段时同时恢复进度</span></div><div class="arw">↑</div></div>
   <input type="file" id="migFile" accept=".json" class="hidden" onchange="impAll(event)">
+  <div class="line-item" onclick="openSheet('backup')"><div class="ic">↺</div><div class="tx"><b>恢复本地快照</b><span>查看清空前和同步前的自动备份</span></div><div class="arw">›</div></div>
   <div class="hint" style="margin-top:10px">云端已自动同步，导出主要用于备份和分享章节。导入章节会追加，不覆盖已有题目。</div>`;
+}
+function backupBody(){
+  const list=listBackups();
+  return list.length?list.map((b,i)=>`<div class="line-item" onclick="recoverBackup(${i})"><div class="tx"><b>${esc(new Date(b.date).toLocaleString())}</b><span>${esc(b.reason)} · ${Object.keys(b.state?.answers||{}).length} 条答案</span></div><div class="arw">恢复 ›</div></div>`).join(''):'<div class="empty">尚无可恢复的本地快照</div>';
 }
 function dl(obj,name){
   const b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
@@ -921,7 +1121,7 @@ const stamp=()=>new Date().toISOString().slice(0,10);
 function expAll(){
   dl({v:2,exported_at:new Date().toISOString(),
     chapters:S.chapters.filter(c=>!c.builtin).map(c=>({id:c.id,name:c.name,icon:c.icon,qs:c.qs})),
-    state:{answers:S.answers,wrong:S.wrong,favorites:S.favorites,edits:S.edits,cursor:S.cursor,order:S.order}},
+    state:{answers:S.answers,answerMeta:S.answerMeta,clearMeta:S.clearMeta,wrong:S.wrong,wrongMeta:S.wrongMeta,favorites:S.favorites,favoriteMeta:S.favoriteMeta,edits:S.edits,editMeta:S.editMeta,cursor:S.cursor,order:S.order}},
     '辨析题库_全量备份_'+stamp()+'.json');toast('已导出');
 }
 function expBank(){
@@ -938,6 +1138,9 @@ function impAll(e){
       if(d.state&&confirm('备份里含作答进度，是否一并恢复到本地？（会覆盖当前进度）')){
         window._restoreProgress=true;
         Object.assign(S.answers,d.state.answers||{});Object.assign(S.wrong,d.state.wrong||{});
+        for(const id of Object.keys(d.state.answers||{})){S.answerMeta[id]=syncNow();S.wrongMeta[id]=syncNow()}
+        for(const id of Object.keys(d.state.favorites||{}))S.favoriteMeta[id]=syncNow();
+        for(const id of Object.keys(d.state.edits||{}))S.editMeta[id]=syncNow();
         Object.assign(S.favorites,d.state.favorites||{});
         Object.assign(S.edits,d.state.edits||{});Object.assign(S.cursor,d.state.cursor||{});
         if(d.state.order&&d.state.order.length)S.order=d.state.order;
@@ -1010,14 +1213,15 @@ async function auth(){
   location.reload();
 }
 async function boot(){
-  loadLocal();
-  S.favorites=S.favorites||{};
   history.replaceState({...(history.state||{}),eduQuizView:'home'},'');
   if(!S.order||!S.order.length)S.order=S.chapters.map(c=>c.id);
   selCh=(me?selCh:selCh)||S.order[0];
-  const {data:{user}}=await sb.auth.getUser();
-  if(user){me=user;$('loginView').classList.add('hidden');await pullCloud();if(!chById(selCh))selCh=orderedCh()[0].id}
-  else if(await needLogin()){showLogin();return}
+  try{
+    const {data:{user},error}=await sb.auth.getUser();
+    if(error)throw error;
+    if(user){me=user;loadLocal();$('loginView').classList.add('hidden');await pullCloud();if(!chById(selCh))selCh=orderedCh()[0].id}
+    else{loadLocal();if(await needLogin()){showLogin();return}}
+  }catch(err){loadLocal();statusSync('登录状态检查失败','error');toast('登录或云端连接失败，当前仅使用本地数据')}
   selCh=selCh||orderedCh()[0].id;
   refreshChrome();renderHome();
 }
