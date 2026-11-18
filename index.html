@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>辨析题库 · 易错自测</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -27,6 +30,11 @@ button{font-family:inherit}
 .chip .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
 .chip .cnt{font-size:11px;color:var(--sub);font-weight:500;flex:0 0 auto}
 .chip .arw{color:var(--sub);font-size:11px;flex:0 0 auto}
+.wrap{max-width:560px;margin:0 auto;width:100%;height:100%;display:flex;flex-direction:column}
+.topbar>*{flex:0 0 auto}
+.topbar .chip{flex:1 1 auto}
+.main{height:auto;flex:1 1 auto}
+@media(min-width:820px){.wrap{max-width:860px}.stat-row,.mode-list{grid-template-columns:repeat(2,1fr)}}
 .mini-prog{position:absolute;left:0;bottom:-1px;height:2px;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .3s;border-radius:0 2px 2px 0}
 
 /* ============ 主体 ============ */
@@ -170,12 +178,12 @@ textarea.fld{min-height:110px;resize:vertical;line-height:1.6}
 .login{position:fixed;inset:0;z-index:80;background:linear-gradient(160deg,#6c5ce7,#a29bfe 60%,#dfe6ff);display:flex;align-items:center;justify-content:center;padding:24px}
 .login-box{width:100%;max-width:360px;background:#fff;border-radius:20px;padding:26px 22px;box-shadow:0 18px 50px rgba(40,30,90,.3)}
 .login-box h2{font-size:19px;margin-bottom:2px}
-.login-box .sub{font-size:12px;color:var(--sub);margin-bottom:18px}
+.login-box .sub{font-size:12px;color:var(--sub);margin-bottom:18px;min-height:18px}
 .login-box input{width:100%;height:44px;border:1px solid var(--line);border-radius:11px;padding:0 12px;font-size:15px;outline:none;margin-bottom:10px;background:#fbfbfd}
 .login-box input:focus{border-color:var(--brand);background:#fff}
 .login-box .go{width:100%;height:44px;border:none;border-radius:11px;background:var(--brand);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
 .login-box .sw{width:100%;height:38px;border:none;background:transparent;color:var(--brand);font-size:13px;cursor:pointer;margin-top:2px}
-.login-box .tip{font-size:11px;color:#b2b6c4;margin-top:10px;line-height:1.5}
+.login-box .tip{font-size:11px;color:#b2b6c4;margin:0 0 12px;line-height:1.5;padding-left:2px}
 
 /* toast */
 #toast{position:fixed;left:50%;bottom:calc(84px + var(--safe));transform:translateX(-50%) translateY(10px);z-index:99;background:rgba(30,30,45,.92);color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;max-width:86vw;text-align:center}
@@ -183,7 +191,7 @@ textarea.fld{min-height:110px;resize:vertical;line-height:1.6}
 </style>
 </head>
 <body>
-
+<div class="wrap">
 <!-- 顶栏：极简，只放入口 + 当前章节 -->
 <header class="topbar">
   <button class="icon-btn" onclick="goHome()" title="首页">🏠</button>
@@ -262,6 +270,7 @@ textarea.fld{min-height:110px;resize:vertical;line-height:1.6}
     </div>
   </section>
 </main>
+</div>
 
 <!-- 弹层 -->
 <div class="mask" id="mask" onclick="closeSheet()"></div>
@@ -277,12 +286,12 @@ textarea.fld{min-height:110px;resize:vertical;line-height:1.6}
 <div class="login hidden" id="loginView">
   <div class="login-box">
     <h2 id="lgTitle">辨析题库</h2>
-    <div class="sub" id="lgSub">登录后进度自动云端同步</div>
+    <div class="sub" id="lgSub"></div>
     <input id="lgEmail" type="email" placeholder="邮箱" autocomplete="username">
     <input id="lgPwd" type="password" placeholder="密码（至少6位）" autocomplete="current-password">
-    <button class="go" onclick="auth()">登录</button>
-    <button class="sw" onclick="toggleAuthMode()">没有账号？去注册</button>
-    <div class="tip">仅用于区分你自己的数据，密码加密存储。</div>
+    <div class="tip" id="lgTip"></div>
+    <button class="go" id="lgGo" onclick="auth()">登录</button>
+    <button class="sw" id="lgSw" onclick="toggleAuthMode()">没有账号？去注册</button>
   </div>
 </div>
 
@@ -740,20 +749,48 @@ function showLogin(){$('loginView').classList.remove('hidden')}
 function toggleAuthMode(){
   authMode=authMode==='login'?'signup':'login';
   $('lgTitle').textContent=authMode==='login'?'欢迎回来':'创建账号';
-  $('lgSub').textContent=authMode==='login'?'登录后进度自动云端同步':'用户名密码即可，无需验证邮箱';
   $('lgEmail').value='';$('lgPwd').value='';
-  document.querySelector('.login .go').textContent=authMode==='login'?'登录':'注册';
-  document.querySelector('.login .sw').textContent=authMode==='login'?'没有账号？去注册':'已有账号？去登录';
+  $('lgGo').textContent=authMode==='login'?'登录':'注册';
+  $('lgSw').textContent=authMode==='login'?'没有账号？去注册':'已有账号？去登录';
+  lgMsg('');cdStop();
+  if(authMode==='signup')$('lgPwd').setAttribute('placeholder','设置密码（至少6位）');
+  else $('lgPwd').setAttribute('placeholder','密码');
 }
+function lgMsg(t,color){const el=$('lgTip');el.textContent=t||'';el.style.color=color||''}
+let cdTimer=null;
+function cdStop(){clearInterval(cdTimer);cdTimer=null;$('lgGo').disabled=false;$('lgSw').classList.remove('hidden')}
+function cdStart(sec){
+  let left=sec;$('lgGo').disabled=true;$('lgSw').classList.add('hidden');
+  const tick=()=>{lgMsg('注册已提交，请 '+left+' 秒后重试（避免触发邮件限制）');$('lgGo').textContent=left+' 秒后可重试';if(--left<0){cdStop();$('lgGo').textContent='注册';lgMsg('还没收到？可换邮箱再试，或稍后直接登录')}};
+  tick();cdTimer=setInterval(tick,1000);
+}
+const FRIENDLY=[
+  [/rate.?limit|429|too many/i,'请求太频繁了，稍等一会儿再试'],
+  [/already (registered|exists)|用户已存在|email already/i,'这个邮箱已经注册过了，直接登录吧'],
+  [/invalid login credentials/i,'邮箱或密码错误'],
+  [/password/i,'密码至少 6 位'],
+  [/network|fetch|Failed to fetch/i,'网络连不上，检查下网络']
+];
+function niceErr(m){const f=FRIENDLY.find(([re])=>re.test(m||''));return f?f[1]:(m||'出错了，稍后再试')}
 async function auth(){
+  if($('lgGo').disabled)return;
   const e=$('lgEmail').value.trim(),p=$('lgPwd').value;
-  if(!e||!p)return toast('请填写邮箱和密码');
-  if(p.length<6)return toast('密码至少 6 位');
+  if(!e||!p)return lgMsg('请填写邮箱和密码','#ff7675');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))return lgMsg('邮箱格式不太对','#ff7675');
+  if(p.length<6)return lgMsg('密码至少 6 位','#ff7675');
+  const btn=$('lgGo');btn.disabled=true;btn.textContent='请稍候…';lgMsg('');
   let r;
-  if(authMode==='login')r=await sb.auth.signInWithPassword({email:e,password:p});
-  else r=await sb.auth.signUp({email:e,password:p});
-  if(r.error)return toast(r.error.message==='Invalid login credentials'?'邮箱或密码错误':r.error.message);
-  if(authMode==='signup'&&r.data.user&&!r.data.session)return toast('注册成功，请直接登录');
+  try{
+    if(authMode==='login')r=await sb.auth.signInWithPassword({email:e,password:p});
+    else r=await sb.auth.signUp({email:e,password:p});
+  }catch(err){btn.disabled=false;btn.textContent=authMode==='login'?'登录':'注册';return lgMsg(niceErr('network'),'#ff7675')}
+  if(r.error){
+    btn.disabled=false;btn.textContent=authMode==='login'?'登录':'注册';
+    lgMsg(niceErr(r.error.message),'#ff7675');
+    if(authMode==='signup'&&/rate.?limit|429|too many/i.test(r.error.message||''))cdStart(60);
+    return;
+  }
+  if(authMode==='signup'&&r.data.user&&!r.data.session){cdStart(60);return}
   location.reload();
 }
 async function boot(){
