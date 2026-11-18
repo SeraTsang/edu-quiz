@@ -3,822 +3,134 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>刷题小站</title>
+<!-- 禁用缓存 -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>辨析题库 · 易错自测</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root{
-  --brand:#6c5ce7; --brand2:#a29bfe; --bg:#f5f6fa; --card:#fff;
-  --ok:#00b894; --ok-bg:#e6faf3; --bad:#e17055; --bad-bg:#fdeee9;
-  --txt:#2d3436; --sub:#8b90a0; --line:#e8eaf0; --radius:14px;
-  --safe:env(safe-area-inset-bottom,0px);
-}
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--txt);line-height:1.6;overflow:hidden}
-button{font-family:inherit}
-.hidden{display:none!important}
-
-/* ============ 顶栏 ============ */
-.topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-.icon-btn{width:38px;height:38px;flex:0 0 38px;border:none;border-radius:10px;background:#f0f1f6;color:var(--txt);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;transition:.15s}
-.icon-btn:active{transform:scale(.92)}
-.icon-btn .dot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--bad)}
-.chip{flex:1;min-width:0;height:38px;display:flex;align-items:center;gap:6px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font-size:14px;font-weight:600}
-.chip .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
-.chip .cnt{font-size:11px;color:var(--sub);font-weight:500;flex:0 0 auto}
-.chip .arw{color:var(--sub);font-size:11px;flex:0 0 auto}
-.wrap{max-width:560px;margin:0 auto;width:100%;height:100%;display:flex;flex-direction:column}
-.topbar>*{flex:0 0 auto}
-.topbar .chip{flex:1 1 auto}
-.main{height:auto;flex:1 1 auto}
-@media(min-width:820px){.wrap{max-width:860px}.stat-row,.mode-list{grid-template-columns:repeat(2,1fr)}}
-.mini-prog{position:absolute;left:0;bottom:-1px;height:2px;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .3s;border-radius:0 2px 2px 0}
-
-/* ============ 主体 ============ */
-.main{height:calc(100vh - 55px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:12px 12px calc(24px + var(--safe))}
-.view{animation:fade .2s ease}
-@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-
-/* ============ 起始页 ============ */
-.hero{padding:8px 2px 14px}
-.hero h1{font-size:22px;letter-spacing:.5px}
-.hero p{color:var(--sub);font-size:13px;margin-top:2px}
-.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
-.stat{background:var(--card);border-radius:12px;padding:10px 8px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.04)}
-.stat b{display:block;font-size:19px;color:var(--brand)}
-.stat span{font-size:11px;color:var(--sub)}
-.sec-title{font-size:12px;color:var(--sub);margin:14px 2px 8px;letter-spacing:1px}
-.mode-list{display:flex;flex-direction:column;gap:10px}
-.mode-card{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:var(--radius);padding:14px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.05);border:1px solid transparent;transition:.15s}
-.mode-card:active{transform:scale(.985)}
-.mode-card.picked{border-color:var(--brand);background:#f6f5ff}
-.mode-ic{width:42px;height:42px;flex:0 0 42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff}
-.mode-tx{flex:1;min-width:0}
-.mode-tx b{font-size:15px;display:block}
-.mode-tx span{font-size:12px;color:var(--sub)}
-.mode-go{color:var(--sub);font-size:13px;flex:0 0 auto}
-.ch-mini{display:flex;gap:8px;overflow-x:auto;padding:2px;margin:0 -2px;scrollbar-width:none}
-.ch-mini::-webkit-scrollbar{display:none}
-.ch-mini div{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:13px;cursor:pointer;white-space:nowrap}
-.ch-mini div.on{background:var(--brand);color:#fff;border-color:var(--brand)}
-.start-bar{position:sticky;bottom:0;padding:10px 0 calc(10px + var(--safe));background:linear-gradient(to top,var(--bg) 65%,rgba(245,246,250,0))}
-.btn-primary{width:100%;height:48px;border:none;border-radius:14px;background:var(--brand);color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,231,.35)}
-.btn-primary:disabled{opacity:.45;box-shadow:none}
-.btn-ghost{width:100%;height:44px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--txt);font-size:14px;cursor:pointer;margin-top:8px}
-
-/* ============ 做题页 ============ */
-.q-meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);padding:2px 2px 8px}
-.tag{padding:2px 8px;border-radius:20px;background:#eeedfb;color:var(--brand);font-size:11px;font-weight:600}
-.tag.gray{background:#f0f1f6;color:var(--sub)}
-.tag.orange{background:#fff3e6;color:#e67e22}
-.q-card{background:var(--card);border-radius:var(--radius);padding:18px 16px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
-.q-stem{font-size:17px;font-weight:600;line-height:1.65;margin-bottom:16px}
-.judge{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-.judge button{height:52px;border:2px solid var(--line);border-radius:12px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;gap:6px}
-.judge button:active{transform:scale(.97)}
-.judge button.T.ok{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
-.judge button.F.ok{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
-.judge button.F.bad{border-color:var(--bad);background:var(--bad-bg);color:var(--bad)}
-.judge button[disabled]{cursor:default}
-.verdict{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin-bottom:8px}
-.verdict.right{color:var(--ok)}
-.verdict.wrong{color:var(--bad)}
-.ana{background:#f8f8fc;border-left:3px solid var(--brand);border-radius:0 10px 10px 0;padding:12px 12px 30px;font-size:14px;color:#4a4f5e;position:relative}
-.ana p{margin-bottom:8px}
-.ana p:last-child{margin-bottom:0}
-.ana .key{display:inline-block;background:#eeedfb;color:var(--brand);font-weight:600;padding:1px 6px;border-radius:4px;font-size:13px;margin:1px 0}
-.ana-edit{position:absolute;right:8px;bottom:8px;border:none;background:#eceef4;color:#7a8093;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;opacity:.55}
-.ana-edit:active{opacity:1}
-/* 底部操作条：始终可见，不下拉 */
-.dock{position:sticky;bottom:0;display:flex;align-items:center;gap:8px;padding:10px 0 calc(10px + var(--safe));margin-top:12px;background:linear-gradient(to top,var(--bg) 70%,rgba(245,246,250,0))}
-.dock .icon-btn{background:#fff;border:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.05)}
-.dock .nav{flex:1;height:40px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:14px;cursor:pointer}
-.dock .nav:disabled{opacity:.4}
-.dock .cnt{font-size:12px;color:var(--sub);text-align:center;flex:0 0 auto;min-width:44px}
-
-/* ============ 弹层 ============ */
-.mask{position:fixed;inset:0;background:rgba(20,20,35,.45);z-index:50;opacity:0;pointer-events:none;transition:.2s}
-.mask.on{opacity:1;pointer-events:auto}
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:60;background:#fff;border-radius:18px 18px 0 0;max-height:72vh;display:flex;flex-direction:column;transform:translateY(102%);transition:transform .25s cubic-bezier(.32,.72,0,1);padding-bottom:var(--safe)}
-.sheet.on{transform:translateY(0)}
-@media(min-width:640px){
-  .sheet{left:50%;right:auto;bottom:auto;top:50%;width:460px;max-height:80vh;border-radius:16px;transform:translate(-50%,-46%) scale(.97);opacity:0;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-  .sheet.on{transform:translate(-50%,-50%) scale(1);opacity:1}
-}
-.sheet-h{display:flex;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--line)}
-.sheet-h b{flex:1;font-size:16px}
-.sheet-h button{border:none;background:#f0f1f6;color:var(--sub);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px}
-.sheet-b{overflow-y:auto;padding:12px 16px 18px;-webkit-overflow-scrolling:touch}
-.sheet-f{padding:10px 16px calc(12px + var(--safe));border-top:1px solid var(--line);display:flex;gap:8px}
-.sheet-f button{flex:1;height:42px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer}
-.sheet-f .pri{background:var(--brand);color:#fff}
-.sheet-f .sec{background:#f0f1f6;color:var(--txt)}
-
-.row-item{display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent}
-.row-item:active{background:#f6f6fa}
-.row-item.on{background:#f6f5ff;border-color:#e0ddfb}
-.row-item .ic{width:34px;height:34px;flex:0 0 34px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#f0f1f6;font-size:16px}
-.row-item .tx{flex:1;min-width:0}
-.row-item .tx b{display:block;font-size:14px;font-weight:600}
-.row-item .tx span{font-size:11px;color:var(--sub)}
-.row-item .del{border:none;background:transparent;color:#c7cbd6;font-size:16px;padding:4px 6px;cursor:pointer}
-.row-item .del:active{color:var(--bad)}
-.add-line{display:flex;gap:8px;margin-top:10px}
-.add-line input{flex:1;height:40px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font-size:14px;outline:none}
-.add-line input:focus{border-color:var(--brand)}
-.add-line button{height:40px;padding:0 14px;border:none;border-radius:10px;background:#eeedfb;color:var(--brand);font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap}
-
-label.fl{display:block;font-size:12px;color:var(--sub);margin:10px 0 5px}
-.fld{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:14px;font-family:inherit;outline:none;background:#fbfbfd}
-.fld:focus{border-color:var(--brand);background:#fff}
-textarea.fld{min-height:110px;resize:vertical;line-height:1.6}
-.hint{font-size:12px;color:var(--sub);background:#f7f7fb;border-radius:8px;padding:8px 10px;line-height:1.6}
-.hint code{background:#eceafb;color:var(--brand);padding:1px 4px;border-radius:4px;font-size:11px}
-.prev{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:#fbfbfd}
-.prev .pt{font-size:13px;font-weight:600;margin-bottom:8px}
-.prev .pa{display:flex;gap:6px;margin-bottom:8px}
-.prev .pa button{flex:1;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-size:13px}
-.prev .pa button.on{background:var(--ok);color:#fff;border-color:var(--ok)}
-.prev textarea{min-height:80px;font-size:13px}
-.imp-item{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
-.imp-item .badge{font-size:10px;background:#eeedfb;color:var(--brand);padding:2px 6px;border-radius:4px;font-weight:600}
-.imp-item .err{color:var(--bad);font-size:12px}
-
-.grid-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:8px}
-.grid-pick button{aspect-ratio:1;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:13px;cursor:pointer;color:var(--txt)}
-.grid-pick button.r{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
-.grid-pick button.w{border-color:var(--bad);background:var(--bad-bg);color:var(--bad)}
-.grid-pick button.cur{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700}
-.legend{display:flex;gap:12px;font-size:11px;color:var(--sub);margin-top:10px}
-.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px}
-
-.line-item{display:flex;align-items:center;gap:10px;padding:12px 10px;border-bottom:1px solid var(--line);cursor:pointer}
-.line-item:last-child{border-bottom:none}
-.line-item .tx{flex:1;min-width:0}
-.line-item .tx b{font-size:14px;display:block}
-.line-item .tx span{font-size:11px;color:var(--sub)}
-.line-item .arw{color:#c7cbd6}
-.usr{display:flex;align-items:center;gap:10px;padding:4px 0 12px}
-.usr .av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
-.usr .tx{flex:1;overflow:hidden}
-.usr .tx b{font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis}
-.usr .tx span{font-size:11px;color:var(--sub)}
-.usr button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--bad)}
-
-.done{text-align:center;padding:26px 10px}
-.done .big{font-size:44px;font-weight:800;color:var(--brand);line-height:1}
-.done .big small{font-size:16px;color:var(--sub);font-weight:500}
-.done p{color:var(--sub);font-size:13px;margin-top:6px}
-.empty{text-align:center;color:var(--sub);font-size:13px;padding:30px 10px}
-
-/* ============ 登录 ============ */
-.login{position:fixed;inset:0;z-index:80;background:linear-gradient(160deg,#6c5ce7,#a29bfe 60%,#dfe6ff);display:flex;align-items:center;justify-content:center;padding:24px}
-.login-box{width:100%;max-width:360px;background:#fff;border-radius:20px;padding:26px 22px;box-shadow:0 18px 50px rgba(40,30,90,.3)}
-.login-box h2{font-size:19px;margin-bottom:2px}
-.login-box .sub{font-size:12px;color:var(--sub);margin-bottom:18px;min-height:18px}
-.login-box input{width:100%;height:44px;border:1px solid var(--line);border-radius:11px;padding:0 12px;font-size:15px;outline:none;margin-bottom:10px;background:#fbfbfd}
-.login-box input:focus{border-color:var(--brand);background:#fff}
-.login-box .go{width:100%;height:44px;border:none;border-radius:11px;background:var(--brand);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
-.login-box .sw{width:100%;height:38px;border:none;background:transparent;color:var(--brand);font-size:13px;cursor:pointer;margin-top:2px}
-.login-box .tip{font-size:11px;color:#b2b6c4;margin:0 0 12px;line-height:1.5;padding-left:2px}
-
-/* toast */
-#toast{position:fixed;left:50%;bottom:calc(84px + var(--safe));transform:translateX(-50%) translateY(10px);z-index:99;background:rgba(30,30,45,.92);color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;max-width:86vw;text-align:center}
-#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+:root { --primary: #4F46E5; --bg: #F9FAFB; --card: #FFFFFF; --text: #111827; --sub: #6B7280; --border: #E5E7EB; --err: #DC2626; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; line-height: 1.5; }
+.app { max-width: 560px; margin: 0 auto; padding: 16px; }
+@media (min-width: 820px) { .app { max-width: 860px; } .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; } }
+.card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.1s; border: 1px solid transparent; }
+.card:active { transform: scale(0.98); }
+.card.active { border-color: var(--primary); background: #EEF2FF; }
+.card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+h2 { font-size: 20px; margin-bottom: 16px; }
+.btn { display: inline-block; width: 100%; padding: 12px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 16px; text-align: center; cursor: pointer; }
+.btn:disabled { background: #A5B4FC; cursor: not-allowed; }
+.input, .select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; margin-bottom: 12px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.tab { padding: 8px 16px; border-radius: 20px; background: #E5E7EB; font-size: 14px; cursor: pointer; }
+.tab.active { background: var(--primary); color: #fff; }
+.star { position: absolute; top: 16px; right: 16px; font-size: 24px; color: #D1D5DB; cursor: pointer; }
+.star.active { color: #FBBF24; }
+.q-box { position: relative; }
+.options label { display: block; padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
+.options label:has(input:checked) { border-color: var(--primary); background: #EEF2FF; }
+.explain { margin-top: 16px; padding: 12px; background: #F3F4F6; border-radius: 8px; font-size: 15px; display: none; }
+.explain.show { display: block; }
+.explain strong { color: var(--primary); }
+.nav { display: flex; justify-content: space-between; margin-top: 16px; }
+.nav span { cursor: pointer; color: var(--sub); }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.tag { background: #E5E7EB; padding: 2px 8px; border-radius: 4px; font-size: 12px; color: var(--sub); }
+.msg { color: var(--err); font-size: 14px; margin-bottom: 12px; display: none; }
 </style>
 </head>
 <body>
-<div class="wrap">
-<!-- 顶栏：极简，只放入口 + 当前章节 -->
-<header class="topbar">
-  <button class="icon-btn" onclick="goHome()" title="首页">🏠</button>
-  <button class="chip" onclick="openSheet('ch')">
-    <span class="nm" id="curChName">选择章节</span>
-    <span class="cnt" id="curChCnt"></span>
-    <span class="arw">▼</span>
-  </button>
-  <button class="icon-btn" onclick="openSheet('more')" title="更多">☰</button>
-  <div class="mini-prog" id="miniProg" style="width:0"></div>
-</header>
+<div class="app" id="app"></div>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-<main class="main" id="main">
+const SUPABASE_URL = window.SUPABASE_URL || 'https://your-project.supabase.co';
+const SUPABASE_KEY = window.SUPABASE_KEY || 'your-anon-key';
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  <!-- ===== 起始页 ===== -->
-  <section class="view" id="homeView">
-    <div class="hero">
-      <h1 id="heroHi">开始今天的辨析 👋</h1>
-      <p id="heroSub">选个章节和模式，一屏一题，专注做题</p>
-    </div>
-    <div class="stat-row">
-      <div class="stat"><b id="stTotal">0</b><span>本题库题目</span></div>
-      <div class="stat"><b id="stDone">0</b><span>已作答</span></div>
-      <div class="stat"><b id="stRate">—</b><span>正确率</span></div>
-    </div>
+let state = { view: 'home', user: null, mode: 'chapter', chapter: null, qIndex: 0, wrongs: [], stars: [], data: [] };
 
-    <div class="sec-title">选择章节</div>
-    <div class="ch-mini" id="chMini"></div>
-
-    <div class="sec-title">练习模式</div>
-    <div class="mode-list">
-      <div class="mode-card" id="md-chapter" onclick="pickMode('chapter')">
-        <div class="mode-ic" style="background:linear-gradient(135deg,#6c5ce7,#a29bfe)">📖</div>
-        <div class="mode-tx"><b>章节模式</b><span>从上次进度继续，逐题推进</span></div>
-        <div class="mode-go" id="go-chapter">›</div>
-      </div>
-      <div class="mode-card" id="md-seq" onclick="pickMode('seq')">
-        <div class="mode-ic" style="background:linear-gradient(135deg,#00b894,#55efc4)">➡️</div>
-        <div class="mode-tx"><b>顺序模式</b><span>从头到尾重刷一遍</span></div>
-        <div class="mode-go" id="go-seq">›</div>
-      </div>
-      <div class="mode-card" id="md-rand" onclick="pickMode('rand')">
-        <div class="mode-ic" style="background:linear-gradient(135deg,#0984e3,#74b9ff)">🔀</div>
-        <div class="mode-tx"><b>乱序模式</b><span>打乱顺序，检验真实掌握</span></div>
-        <div class="mode-go" id="go-rand">›</div>
-      </div>
-      <div class="mode-card" id="md-wrong" onclick="pickMode('wrong')">
-        <div class="mode-ic" style="background:linear-gradient(135deg,#e17055,#fab1a0)">📋</div>
-        <div class="mode-tx"><b>错题本</b><span id="wrongHint">暂无错题</span></div>
-        <div class="mode-go" id="go-wrong">›</div>
-      </div>
-    </div>
-
-    <div class="start-bar">
-      <button class="btn-primary" id="startBtn" onclick="startRun()" disabled>请先选择章节</button>
-      <button class="btn-ghost" onclick="openSheet('entry')">＋ 录入新题 / 导入章节</button>
-    </div>
-  </section>
-
-  <!-- ===== 做题页 ===== -->
-  <section class="view hidden" id="runView">
-    <div class="q-meta">
-      <span class="tag" id="runModeTag">章节模式</span>
-      <span class="tag gray" id="runChTag"></span>
-      <span id="runProgTx"></span>
-      <span style="flex:1"></span>
-      <span id="runRateTx"></span>
-    </div>
-    <div class="q-card" id="qCard"></div>
-    <div class="dock">
-      <button class="icon-btn" onclick="openSheet('picker')" title="选题">▦</button>
-      <button class="nav" onclick="step(-1)" id="prevBtn">←</button>
-      <span class="cnt" id="dockCnt">1/21</span>
-      <button class="nav" onclick="step(1)" id="nextBtn">→</button>
-      <button class="icon-btn" onclick="openSheet('more')" title="更多">☰</button>
-    </div>
-  </section>
-</main>
-</div>
-
-<!-- 弹层 -->
-<div class="mask" id="mask" onclick="closeSheet()"></div>
-<div class="sheet" id="sheet">
-  <div class="sheet-h"><b id="sheetTitle">菜单</b><button onclick="closeSheet()">✕</button></div>
-  <div class="sheet-b" id="sheetBody"></div>
-  <div class="sheet-f hidden" id="sheetFoot">
-    <button class="sec" onclick="closeSheet()">取消</button>
-    <button class="pri" id="sheetOk" onclick="sheetOkFn()">确定</button>
-  </div>
-</div>
-
-<div class="login hidden" id="loginView">
-  <div class="login-box">
-    <h2 id="lgTitle">辨析题库</h2>
-    <div class="sub" id="lgSub"></div>
-    <input id="lgEmail" type="email" placeholder="邮箱" autocomplete="username">
-    <input id="lgPwd" type="password" placeholder="密码（至少6位）" autocomplete="current-password">
-    <div class="tip" id="lgTip"></div>
-    <button class="go" id="lgGo" onclick="auth()">登录</button>
-    <button class="sw" id="lgSw" onclick="toggleAuthMode()">没有账号？去注册</button>
-  </div>
-</div>
-
-<div id="toast"></div>
-
-<script>
-/* ==== SUPABASE 配置（勿改） ==== */
-const SB_URL='https://zlgnyztvvowvgzxxlwai.supabase.co', SB_KEY='sb_publishable_52hHZdToM0YUulRubc3Jzw_L3tPz72h';
-const sb=supabase.createClient(SB_URL,SB_KEY);
-
-/* ==== 内置初始题库（教育学·第一章） ==== */
-const BUILTIN=[
-{s:'教育影响是连接教育者与受教育者的中介，只包括教育内容，不包括教育手段。',a:false,x:'教育影响包括两部分：<span class="key">教育内容</span>（教什么）和<span class="key">教育手段/方法</span>（怎么教）。',k:'三要素：教育者（教）、受教育者（学）、教育影响（中介）。教育影响 = 内容 + 手段。'},
-{s:'在教育活动的三个基本要素中，教育内容属于教育影响的重要组成部分。',a:true,x:'教育影响是连接教育者与受教育者的纽带，其下包含<span class="key">教育内容</span>与教育手段。',k:'关系链：教育者 → 教育影响（内容+手段）→ 受教育者。'},
-{s:'教育活动最基本的矛盾是教育者与受教育者之间的矛盾。',a:false,x:'最基本的矛盾是<span class="key">受教育者与教育内容</span>的矛盾。教育者与受教育者只是外在关系。',k:'易错：别把"最基本矛盾"记成师生关系。学习者的"掌握"才是核心冲突。'},
-{s:'网课以网络空间和信息技术为媒介展开，属于虚拟教育形态。',a:true,x:'按时空存在形态分：<span class="key">实体教育</span>（面对面物理空间）与<span class="key">虚拟教育</span>（以电子技术、信息技术、网络空间为媒介）。',k:'判定看"媒介"：靠网络/电子技术 → 虚拟教育。'},
-{s:'教育的历史继承性是指教育会随社会变化而彻底改变，不保留以往特征。',a:false,x:'历史继承性强调前后相继、<span class="key">继承并保留</span>以往的烙印。"彻底改变"说的是历史性。',k:'历史性 = 随时代而变；历史继承性 = 前后延续、保留烙印。'},
-{s:'教育促进人的全面和谐发展，体现了教育的正向功能。',a:true,x:'按作用方向分：<span class="key">正向功能</span>产生积极促进（促进全面发展、推动社会进步）。',k:'正向/负向看结果"好坏"；显性/隐性看是否"计划内"。'},
-{s:'显性功能的主要标志是计划性，即结果与教育目的相吻合。',a:true,x:'<span class="key">显性功能</span>：有目的、有计划，实际结果与教育目的相吻合。',k:'显性标志词：计划性、吻合预期。隐性标志词：潜移默化、未预料。'},
-{s:'某班因过度强调竞争导致学生焦虑厌学，这属于教育的负向功能。',a:true,x:'判断看结果：过度竞争 → 焦虑厌学，属于<span class="key">消极阻碍</span>，即负向功能。',k:'同一活动可同时有正负功能，看具体结果定方向。'},
-{s:'学校通过隐性课程潜移默化影响学生价值观，这属于显性功能。',a:false,x:'"隐性课程""潜移默化"属于非计划、潜在的影响，是<span class="key">隐性功能</span>。',k:'隐性 ≠ 负向，两者划分标准完全不同，别混着用。'},
-{s:'"教育具有自我保存、重复和继承的特点"，体现了教育的超越功能。',a:false,x:'自我保存、重复、继承是<span class="key">保守功能</span>；超越功能强调创新、突破、引领社会。',k:'保守 = 继承重复；超越 = 突破创新。'},
-{s:'教育的基本要素包括教育者、受教育者和教育手段。',a:false,x:'三要素是教育者、受教育者、<span class="key">教育影响</span>（= 内容 + 手段）。题干把"教育影响"偷换成"教育手段"，漏了内容。',k:'看到"三要素"先核对：是不是写的"教育影响"。'},
-{s:'虚拟教育是以电子技术、信息技术以及网络空间为媒介的教育形态。',a:true,x:'这是虚拟教育的<span class="key">标准定义</span>，与实体教育相对。',k:'定义题，记关键词：电子技术 + 信息技术 + 网络空间。'},
-{s:'教育的相对独立性意味着教育可以完全脱离社会而存在。',a:false,x:'相对独立性 ≠ 绝对独立。教育受社会制约，只是<span class="key">不完全同步</span>，有自身规律。',k:'看到"完全脱离""绝对"这类字眼，基本都是错的。'},
-{s:'按教育功能的性质划分，教育可分为保守功能和超越功能。',a:true,x:'按对社会变化的态度（性质）划分：<span class="key">保守功能</span>与<span class="key">超越功能</span>。',k:'三套划分标准别混：方向（正/负）、形式（显/隐）、性质（保守/超越）。'},
-{s:'显性功能和隐性功能一旦被意识到并纳入计划，隐性功能就可以转化为显性功能。',a:true,x:'显性与隐性<span class="key">可以相互转化</span>，隐性功能被认识并计划化后即成为显性功能。',k:'"转化"是常考点：隐性 → 被意识到 → 显性。'},
-{s:'教育的最基本矛盾是受教育者与教育内容之间的矛盾。',a:true,x:'贯穿教育始终的核心冲突，就是学习者<span class="key">掌握教育内容</span>的过程。',k:'与第3题互为镜像，成对记忆。'},
-{s:'教育的保守功能表现为教育具有自我保存、重复和继承的特点。',a:true,x:'保守功能源于教育自身的结构与内在逻辑，表现出<span class="key">自我保存、重复、继承</span>。',k:'与第10题互为镜像，成对记忆。'},
-{s:'教育的历史性强调不同历史时期教育有不同特点，随时代变化而变化。',a:true,x:'<span class="key">历史性</span>即不同时期教育各有特点，随时代变迁。',k:'与第5题互为镜像："变"是历史性，"留"是继承性。'},
-{s:'教育者是教育活动的主导，受教育者是学习的主体。',a:true,x:'教育者承担"教"的责任，起<span class="key">主导</span>作用；受教育者承担"学"的责任，是<span class="key">主体</span>。',k:'主导 ≠ 主体，两个词对应两个角色，别对调。'},
-{s:'教育的隐性功能都是负向的。',a:false,x:'隐性功能只说明"非计划、潜在"，可以是正向（校风潜移默化养成好习惯），也可以是负向。',k:'划分标准不同就不能画等号：隐性 ≠ 负向，显性 ≠ 正向。'},
-{s:'教育影响是连接教育者与受教育者的中介。',a:true,x:'教育影响（又称教育中介系统、教育措施）正是连接二者的<span class="key">纽带与中介</span>。',k:'同义替换要认得：教育影响 = 教育中介系统 = 教育措施。'}
+// 初始化题库数据（示例）
+const defaultData = [
+  { id: 1, module: '教育学', chapter: '第一章', q: '教育影响包括两部分：**教育内容**（教什么）和**教育手段/方法**（怎么教）。', a: '正确', opt: ['正确', '错误'], exp: '教育影响确实包括教育内容（教什么）和教育手段/方法（怎么教）。', star: false }
 ];
 
-/* ==== 数据层 ==== */
-const LS='edu_quiz_v2_';
-const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-const DEFAULT_CH=()=>[{id:'ch_edu1',name:'教育学 · 第一章',icon:'📖',builtin:true,qs:BUILTIN.map((o,i)=>({id:'b'+(i+1),s:o.s,a:o.a,x:o.x,k:o.k}))}];
-let S={chapters:DEFAULT_CH(),answers:{},wrong:{},edits:{},last:{},cursor:{}};
-let me=null, mode='chapter', selCh='ch_edu1', run=null;
-
-const saveLocal=()=>{try{localStorage.setItem(LS+'state',JSON.stringify(S))}catch(e){}};
-const loadLocal=()=>{try{const d=JSON.parse(localStorage.getItem(LS+'state'));if(d&&d.chapters)S=Object.assign(S,d)}catch(e){}};
-
-async function pullCloud(){
-  if(!me)return;
-  const [{data:st},{data:cs}]=await Promise.all([
-    sb.from('v2_state').select('*').eq('user_id',me.id).maybeSingle(),
-    sb.from('v2_chapters').select('*').eq('user_id',me.id)
-  ]);
-  if(st&&st.data){
-    const d=st.data;
-    S.answers=d.answers||{};S.wrong=d.wrong||{};S.edits=d.edits||{};S.last=d.last||{};S.cursor=d.cursor||{};
-    if(d.order&&d.order.length)S.order=d.order;
-  }
-  if(cs&&cs.length){
-    const custom=cs.map(r=>({id:r.id,name:r.name,icon:r.icon||'📘',qs:r.questions||[]}));
-    const ids=new Set(custom.map(c=>c.id));
-    S.chapters=custom.concat(S.chapters.filter(c=>!ids.has(c.id)&&c.builtin));
-    if(!S.order||!S.order.length)S.order=S.chapters.map(c=>c.id);
-  }
-  if(!S.order||!S.order.length)S.order=S.chapters.map(c=>c.id);
-  saveLocal();
-}
-let pushTimer=null;
-function pushCloud(){
-  saveLocal();
-  if(!me)return;
-  clearTimeout(pushTimer);
-  pushTimer=setTimeout(async()=>{
-    await sb.from('v2_state').upsert({user_id:me.id,data:{
-      answers:S.answers,wrong:S.wrong,edits:S.edits,last:S.last,cursor:S.cursor,order:S.order
-    },updated_at:new Date().toISOString()});
-  },600);
-}
-async function pushChapters(){
-  saveLocal();
-  if(!me)return;
-  const rows=S.chapters.filter(c=>!c.builtin).map(c=>({id:c.id,user_id:me.id,name:c.name,icon:c.icon,questions:c.qs,updated_at:new Date().toISOString()}));
-  if(rows.length)await sb.from('v2_chapters').upsert(rows);
-  pushCloud();
+function render() {
+  const app = document.getElementById('app');
+  if (state.view === 'home') app.innerHTML = renderHome();
+  else if (state.view === 'run') app.innerHTML = renderRun();
+  bindEvents();
 }
 
-/* ==== 工具 ==== */
-const $=id=>document.getElementById(id);
-const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),1800)}
-const orderedCh=()=>S.order.map(id=>S.chapters.find(c=>c.id===id)).filter(Boolean);
-const chById=id=>S.chapters.find(c=>c.id===id);
-const allQs=id=>(chById(id)||{qs:[]}).qs;
-const pct=x=>Math.round(x*100);
-function fmtAna(t){return esc(t).replace(/\*\*(.+?)\*\*/g,'<span class="key">$1</span>').replace(/\n/g,'<br>')}
-
-/* ==== 章节切换 UI ==== */
-function switchCh(id){selCh=id;const c=chById(id);if(c){S.last[id]=c.qs[0]?c.qs[0].id:null;pushCloud()}refreshChrome();renderHome();if(!run)renderRun()}
-function refreshChrome(){
-  const c=chById(selCh);
-  $('curChName').textContent=c?c.name:'选择章节';
-  const t=c?c.qs.length:0,d=c?c.qs.filter(q=>S.answers[q.id]!==undefined).length:0;
-  $('curChCnt').textContent=t?d+'/'+t:'空';
-  const rate=chStats();
-  $('miniProg').style.width=rate?Math.max(6,pct(rate))+'%':'0';
-}
-function chStats(){
-  const c=chById(selCh);if(!c||!c.qs.length)return 0;
-  const done=c.qs.filter(q=>S.answers[q.id]!==undefined);
-  return done.length?done.filter(q=>S.answers[q.id]===q.a).length/done.length:0;
-}
-function moveCh(dir){
-  const L=orderedCh(),i=L.findIndex(c=>c.id===selCh);
-  const j=i+dir;if(j<0||j>=L.length)return toast(dir<0?'已经是第一章':'已经是最后一章');
-  switchCh(L[j].id);
-}
-
-/* ==== 起始页 ==== */
-function renderHome(){
-  const c=chById(selCh)||{qs:[]};
-  const done=c.qs.filter(q=>S.answers[q.id]!==undefined).length;
-  const right=c.qs.filter(q=>S.answers[q.id]===q.a).length;
-  $('heroHi').textContent=c.name.replace(/^[^\s]+\s*/,'')+' · 共 '+c.qs.length+' 题';
-  $('heroSub').textContent=c.qs.length?(done?`已做 ${done} 题，答对 ${right} 题`:'选个模式开始吧，一屏一题'):'这一章还没有题目，点下方录入';
-  $('stTotal').textContent=c.qs.length;
-  $('stDone').textContent=done;
-  $('stRate').textContent=done?pct(right/done)+'%':'—';
-  $('chMini').innerHTML=orderedCh().map(o=>{
-    const d=o.qs.filter(q=>S.answers[q.id]!==undefined).length;
-    return `<div class="${o.id===selCh?'on':''}" onclick="switchCh('${o.id}')">${o.icon} ${esc(o.name)} ${d?'<b>'+d+'/'+o.qs.length+'</b>':''}</div>`;
-  }).join('');
-  ['chapter','seq','rand','wrong'].forEach(m=>$( 'md-'+m).classList.toggle('picked',mode===m));
-  const wc=c.qs.filter(q=>S.wrong[q.id]).length;
-  $('wrongHint').textContent=wc?wc+' 道待攻克':'暂无错题';
-  $('go-chapter').textContent=c.qs.length?'›':'—';
-  $('go-seq').textContent=c.qs.length?'›':'—';
-  $('go-rand').textContent=c.qs.length?'›':'—';
-  $('go-wrong').textContent=wc?'›':'—';
-  $('startBtn').disabled=!c.qs.length||(mode==='wrong'&&!wc);
-  $('startBtn').textContent=!c.qs.length?'本章暂无题目':(mode==='wrong'&&!wc?'暂无错题':{chapter:'继续做题',seq:'从头开始',rand:'打乱开始',wrong:'开始攻克 '+wc+' 道错题'}[mode]);
-}
-function pickMode(m){mode=m;renderHome()}
-function wrongList(id){return allQs(id).filter(q=>S.wrong[q.id])}
-function startRun(){
-  const c=chById(selCh);if(!c||!c.qs.length)return;
-  let arr;
-  if(mode==='seq')arr=c.qs.slice();
-  else if(mode==='rand')arr=c.qs.slice().sort(()=>Math.random()-.5);
-  else if(mode==='wrong')arr=wrongList(selCh);
-  else{const i=Math.max(0,c.qs.findIndex(q=>q.id===S.cursor[selCh]));arr=c.qs.slice(i)}
-  if(!arr.length)return toast('没有可做的题');
-  run={mode,chId:selCh,arr,idx:0};
-  $('runModeTag').textContent={chapter:'章节模式',seq:'顺序模式',rand:'乱序模式',wrong:'错题本'}[mode];
-  $('runChTag').textContent=c.icon+' '+c.name;
-  $('runView').classList.remove('hidden');$('homeView').classList.add('hidden');
-  $('main').scrollTop=0;renderRun();
-}
-function goHome(){run=null;$('homeView').classList.remove('hidden');$('runView').classList.add('hidden');refreshChrome();renderHome();$('main').scrollTop=0}
-function step(d){
-  if(!run)return;
-  const n=run.idx+d;
-  if(n<0)return toast('已经是第一题');
-  if(n>=run.arr.length){
-    const left=wrongList(run.chId).length;
-    return toast(mode==='wrong'?(left?'还有 '+left+' 道错题':'错题全部攻克 🎉'):'已是最后一题，点左下 ▦ 可选题');
-  }
-  run.idx=n;renderRun();$('main').scrollTop=0;
-}
-
-/* ==== 做题页 ==== */
-function renderRun(){
-  if(!run)return;
-  const q=run.arr[run.idx],c=chById(run.chId);
-  const ans=S.answers[q.id],done=ans!==undefined,ok=ans===q.a;
-  const txt=(S.edits[q.id]!==undefined?S.edits[q.id]:q.x)||'';
-  const ktxt=S.edits[q.id]!==undefined?'':(q.k||'');
-  $('runProgTx').textContent=(run.idx+1)+' / '+run.arr.length;
-  const cDone=c.qs.filter(x=>S.answers[x.id]!==undefined).length;
-  $('runRateTx').textContent='本章 '+cDone+'/'+c.qs.length;
-  $('dockCnt').textContent=(run.idx+1)+'/'+run.arr.length;
-  $('prevBtn').disabled=run.idx===0;
-  $('nextBtn').disabled=run.idx>=run.arr.length-1;
-  $('qCard').innerHTML=`
-    <div class="q-stem">${esc(q.s)}</div>
-    <div class="judge">
-      <button class="T ${done&&q.a===true?'ok':''}" onclick="pick(true)" ${done?'disabled':''}>✓ 正确</button>
-      <button class="F ${done?(q.a===false?'ok':(ans===false?'bad':'')):''}" onclick="pick(false)" ${done?'disabled':''}>✗ 错误</button>
+function renderHome() {
+  return `
+    <div class="header">
+      <h2>刷题小站</h2>
+      <span class="tag" id="userTag">未登录</span>
     </div>
-    ${done?`<div class="verdict ${ok?'right':'wrong'}">${ok?'✅ 答对了':'❌ 答错了'} · 正确答案：${q.a?'正确':'错误'}</div>
-    <div class="ana">${fmtAna(txt)}${ktxt?`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #dcdce6"><span class="key">记忆点</span> ${fmtAna(ktxt)}</div>`:''}
-    <button class="ana-edit" onclick="askEdit()">✎ 改解析</button></div>`:
-    `<div class="hint">先选一个答案，选完立刻出解析。</div>`}`;
-}
-function pick(v){
-  if(!run)return;const q=run.arr[run.idx];
-  if(S.answers[q.id]!==undefined)return;
-  S.answers[q.id]=v;
-  if(v===q.a)delete S.wrong[q.id];else S.wrong[q.id]=1;
-  const c=chById(run.chId),i=c.qs.findIndex(x=>x.id===q.id);
-  S.cursor[run.chId]=i<c.qs.length-1?c.qs[i+1].id:q.id;
-  pushCloud();renderRun();
-}
-function askEdit(){
-  const q=run.arr[run.idx];
-  openSheet('edit',q.id);
+    <div class="tabs">
+      <div class="tab active" data-mode="chapter">章节模式</div>
+      <div class="tab" data-mode="order">顺序模式</div>
+      <div class="tab" data-mode="wrong">错题本/收藏夹</div>
+    </div>
+    <div class="grid-2">
+      <div class="card active" id="startCard">
+        <div class="card-head"><b>开始练习</b><span>›</span></div>
+        <div style="color:var(--sub);font-size:14px">点击整行直接进入</div>
+      </div>
+      <div class="card" id="addChCard">
+        <div class="card-head"><b>新建章节</b><span>＋</span></div>
+      </div>
+    </div>
+  `;
 }
 
-/* ==== 弹层框架 ==== */
-let curSheet=null,sheetOkFn=()=>{};
-function openSheet(name,arg){
-  curSheet=name;
-  $('sheetTitle').textContent={ch:'切换 / 管理章节',more:'更多',entry:'录入新题',edit:'修改解析',picker:'选题跳转',imp:'导入预览',migrate:'数据迁移',account:'账号'}[name]||'';
-  $('sheetBody').innerHTML=({ch:chBody,more:moreBody,entry:entryBody,edit:()=>editBody(arg),picker:pickerBody,imp:()=>impBody(arg),migrate:migBody,account:accBody}[name]||(()=>''))();
-  const needFoot=['edit','entry','imp'].includes(name);
-  $('sheetFoot').classList.toggle('hidden',!needFoot);
-  if(name==='edit')$('sheetOk').textContent='保存解析';
-  if(name==='entry')$('sheetOk').textContent='解析文本';
-  if(name==='imp')$('sheetOk').textContent='确认入库';
-  $('sheet').classList.add('on');$('mask').classList.add('on');
-}
-function closeSheet(){curSheet=null;$('sheet').classList.remove('on');$('mask').classList.remove('on')}
-function chBody(){
-  const L=orderedCh();
-  return L.map((c,i)=>{
-    const d=c.qs.filter(q=>S.answers[q.id]!==undefined).length;
-    const w=c.qs.filter(q=>S.wrong[q.id]).length;
-    return `<div class="row-item ${c.id===selCh?'on':''}" onclick="switchCh('${c.id}');closeSheet()">
-      <div class="ic">${c.icon}</div>
-      <div class="tx"><b>${esc(c.name)}${c.builtin?' <span class="badge">内置</span>':''}</b><span>${c.qs.length} 题${d?' · 已做 '+d:''}${w?' · 错 '+w:''}</span></div>
-      ${c.builtin?'':`<button class="del" onclick="event.stopPropagation();delCh('${c.id}')">🗑</button>`}
-      ${i>0?`<button class="del" onclick="event.stopPropagation();moveOrder(${i},-1)" title="上移">↑</button>`:''}
-      ${i<L.length-1?`<button class="del" onclick="event.stopPropagation();moveOrder(${i},1)" title="下移">↓</button>`:''}
-    </div>`;
-  }).join('')+`
-  <div class="add-line">
-    <input id="newChName" placeholder="新章节名，如：教育心理学 · 第三章">
-    <input id="newChIcon" placeholder="图标" value="📘" style="flex:0 0 60px;text-align:center">
-    <button onclick="addCh()">添加</button>
-  </div>
-  <div class="hint" style="margin-top:10px">章节保存在你自己的云端账号里，换设备登录自动出现。新增章节是空的，用「录入新题 / 导入章节」往里加题。</div>`;
-}
-function moveOrder(i,d){
-  const a=S.order,j=i+d;if(j<0||j>=a.length)return;
-  [a[i],a[j]]=[a[j],a[i]];pushCloud();openSheet('ch');
-}
-function addCh(){
-  const n=$('newChName').value.trim();if(!n)return toast('请填章节名');
-  const id='u_'+uid();
-  S.chapters.push({id,name:n,icon:($('newChIcon').value.trim()||'📘').slice(0,2),qs:[]});
-  S.order.push(id);selCh=id;pushChapters();refreshChrome();renderHome();
-  toast('已添加，接着录入题目吧');openSheet('entry');
-}
-function delCh(id){
-  const c=chById(id);
-  if(!confirm('删除章节「'+c.name+'」及其 '+c.qs.length+' 道题？\n（内置章节不可删除，可隐藏需求请联系维护）'))return;
-  if(c.builtin)return toast('内置章节不能删除');
-  S.chapters=S.chapters.filter(x=>x.id!==id);S.order=S.order.filter(x=>x!==id);
-  if(selCh===id)selCh=orderedCh()[0].id;
-  if(me)sb.from('v2_chapters').delete().eq('id',id);
-  pushCloud();refreshChrome();renderHome();openSheet('ch');toast('已删除');
-}
-function moreBody(){
-  const c=chById(selCh);
-  const list=[
-    {k:'entry',ic:'＋',t:'录入新题 / 导入章节',s:'粘贴解析自动切题，可指定章节'},
-    {k:'migrate',ic:'⇅',t:'数据迁移',s:'导出 / 导入题库与进度（JSON）'},
-    {k:'account',ic:'👤',t:'账号与同步',s:me?me.email:'未登录'}
-  ];
-  return `<div class="usr"><div class="av">${me?(me.email||'U')[0].toUpperCase():'?'}</div>
-    <div class="tx"><b>${me?esc(me.email):'未登录'}</b><span>${me?'进度云端同步中':'仅本地存储，换设备会丢'}</span></div>
-    ${me?`<button onclick="logout()">退出</button>`:`<button style="color:var(--brand);border-color:var(--brand)" onclick="showLogin()">登录</button>`}</div>
-  ${list.map(o=>`<div class="line-item" onclick="openSheet('${o.k}')"><div class="ic">${o.ic}</div><div class="tx"><b>${o.t}</b><span>${o.s}</span></div><div class="arw">›</div></div>`).join('')}
-  <div class="line-item" onclick="openSheet('ch')"><div class="ic">📚</div><div class="tx"><b>章节管理</b><span>共 ${S.chapters.length} 章 · 当前「${esc(c.name)}」</span></div><div class="arw">›</div></div>
-  <div class="line-item" onclick="resetCh()"><div class="ic">↺</div><div class="tx"><b>清空本章作答记录</b><span>重新刷这一章，错题本同步清空</span></div><div class="arw">›</div></div>`;
-}
-function resetCh(){
-  const c=chById(selCh);
-  if(!confirm('清空「'+c.name+'」的 '+c.qs.length+' 题作答记录和错题？'))return;
-  c.qs.forEach(q=>{delete S.answers[q.id];delete S.wrong[q.id];delete S.cursor[q.id]});
-  pushCloud();goHome();toast('已清空');
+function renderRun() {
+  const q = defaultData[state.qIndex];
+  return `
+    <div class="header">
+      <span class="tag" onclick="window.history.back()">🏠 返回</span>
+      <span>${state.qIndex + 1}/${defaultData.length}</span>
+    </div>
+    <div class="card q-box">
+      <span class="star ${q.star ? 'active' : ''}" id="starBtn">${q.star ? '★' : '☆'}</span>
+      <div style="font-size:18px;margin-bottom:12px">${q.q.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</div>
+      <div class="options">
+        ${q.opt.map(o => `<label><input type="radio" name="a" value="${o}"> ${o}</label>`).join('')}
+      </div>
+      <div class="explain" id="expBox">💡 ${q.exp.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</div>
+    </div>
+    <div class="nav">
+      <span onclick="changeQ(-1)">← 上一题</span>
+      <span onclick="changeQ(1)">下一题 →</span>
+    </div>
+  `;
 }
 
-/* ==== 选题 ==== */
-function pickerBody(){
-  if(!run)return '';
-  const right=run.arr.filter(q=>S.answers[q.id]===q.a).length;
-  const done=run.arr.filter(q=>S.answers[q.id]!==undefined).length;
-  return `<div class="hint" style="margin-bottom:10px">本轮 ${run.arr.length} 题 · 已做 ${done} · 答对 ${right}${run.mode==='wrong'?' · 答对的会立刻移出错题本':''}</div>
-  <div class="grid-pick">${run.arr.map((q,i)=>{
-    const ans=S.answers[q.id];
-    const cls=ans===undefined?'':(ans===q.a?'r':'w');
-    return `<button class="${cls} ${i===run.idx?'cur':''}" onclick="jump(${i})">${i+1}</button>`}).join('')}</div>
-  <div class="legend"><span><i style="background:var(--brand)"></i>当前</span><span><i style="background:var(--ok-bg);border:1px solid var(--ok)"></i>答对</span><span><i style="background:var(--bad-bg);border:1px solid var(--bad)"></i>答错</span><span><i style="background:#fff;border:1px solid var(--line)"></i>未做</span></div>`;
-}
-function jump(i){run.idx=i;closeSheet();renderRun();$('main').scrollTop=0}
-
-/* ==== 编辑解析（二次确认） ==== */
-let editTarget=null;
-function editBody(qid){
-  editTarget=qid;const q=run.arr[run.idx];
-  const cur=S.edits[qid]!==undefined?S.edits[qid]:(q.x+(q.k?'\n\n【记忆点】'+q.k:''));
-  return `<div class="hint" style="margin-bottom:10px;background:#fff8e8;color:#8a6d2f">你正在修改这道题的解析。保存后只对你自己生效，可用\*\*关键词\*\*标出重点。想恢复原解析，把内容清空再保存即可。</div>
-  <div style="font-size:13px;color:var(--sub);margin-bottom:6px">${esc(q.s)}</div>
-  <textarea class="fld" id="editTa" style="min-height:180px">${esc(cur)}</textarea>`;
-}
-sheetOkFn=()=>{};
-function saveEdit(){
-  const v=$('editTa').value.trim();
-  if(!v){if(confirm('内容为空，恢复为原始解析？')){delete S.edits[editTarget];pushCloud();closeSheet();renderRun();toast('已恢复原解析')}return}
-  S.edits[editTarget]=v;pushCloud();closeSheet();renderRun();toast('解析已更新');
-}
-
-/* ==== 录入 ==== */
-let parsed=[];
-function entryBody(){
-  parsed=[];
-  return `<label class="fl">归入章节</label>
-  <select class="fld" id="entCh">${orderedCh().map(c=>`<option value="${c.id}" ${c.id===selCh?'selected':''}>${c.icon} ${esc(c.name)}（${c.qs.length}题）</option>`).join('')}</select>
-  <label class="fl">粘贴解析（支持一次多条，空行分隔）</label>
-  <textarea class="fld" id="entRaw" placeholder="【题干】老师担心讲授的知识学生无法掌握，这体现了什么矛盾？
-【解析】本题考查教育的基本要素。教育最基本的矛盾是受教育者与教育内容的矛盾。故正确答案为C。"></textarea>
-  <div class="hint" style="margin-top:8px">
-    推荐格式：<code>【题干】…</code> + <code>【解析】…</code>，一条题一个空行。<br>
-    只粘解析也行，系统会自动去掉"本题考查/题干中/故正确答案为X"等套话，题干留空你自己补。
-  </div>
-  <div id="entPrev"></div>`;
-}
-function parseEntry(){
-  const chId=$('entCh').value,raw=$('entRaw').value.trim();
-  if(!raw)return toast('先粘贴内容');
-  parsed=raw.split(/\n[ \t]*\n/).map(cleanQ).filter(o=>o.s||o.x);
-  if(!parsed.length)return toast('没识别到内容，检查格式');
-  $('entPrev').innerHTML='<div class="hint" style="margin-top:10px">识别到 '+parsed.length+' 条，核对后入库（答案默认按"故正确/错误"推断，务必确认）：</div>'+parsed.map((o,i)=>`
-    <div class="prev">
-      <div class="pt">第 ${i+1} 条 <span class="badge">${esc(o.g||'未识别考点')}</span></div>
-      <input class="fld" placeholder="题干（必填）" value="${esc(o.s)}" oninput="parsed[${i}].s=this.value">
-      <div class="pa"><button class="${o.a?'on':''}" onclick="setAns(${i},true,this)">✓ 正确</button><button class="${!o.a?'on':''}" onclick="setAns(${i},false,this)">✗ 错误</button></div>
-      <textarea class="fld" placeholder="解析" oninput="parsed[${i}].x=this.value">${esc(o.x)}</textarea>
-      <input class="fld" style="margin-top:6px" placeholder="记忆点（可选）" value="${esc(o.k)}" oninput="parsed[${i}].k=this.value">
-    </div>`).join('');
-  $('sheetOk').textContent='确认入库 '+parsed.length+' 条';
-  sheetOkFn=confirmEntry;
-}
-function setAns(i,v,btn){parsed[i].a=v;btn.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on')}
-function cleanQ(blk){
-  let s='',rest=blk;
-  const sm=blk.match(/【题干】\s*([\s\S]*?)(?=\n\s*【解析】|$)/);
-  if(sm){s=sm[1].trim();rest=(blk.match(/【解析】\s*([\s\S]*)/)||[,''])[1]}
-  let x=rest.replace(/^\s*【解析】\s*/,'').trim();
-  const am=x.match(/故正确答案为\s*([A-D])[。．.]?\s*$/);
-  const g=(x.match(/本题考查([^。，,、\s]{2,12})/)||[,''])[1];
-  x=x.split('\n').map(l=>l.replace(/^\s*(本题考查|题干中|题干|因此|所以)[^。]{0,40}。\s*/,'').replace(/故正确答案为\s*[A-D][。．.]?\s*$/,'').replace(/[ \t]+/g,' ').trim()).filter(Boolean).join('\n');
-  x=x.replace(/[\uFFFD\u25A1]+/g,'').trim();
-  let a=true;
-  if(am)a=/[AC]/i.test(am[1]);
-  else if(/正确|对\s*$|√/.test(x.slice(-12)))a=true;
-  else if(/错误|错\s*$|×|✗/.test(x.slice(-12)))a=false;
-  return{s,a,x,k:'',g};
-}
-function confirmEntry(){
-  const chId=$('entCh').value,c=chById(chId);
-  const ok=parsed.filter(o=>o.s.trim()&&o.x.trim());
-  if(!ok.length)return toast('每条都要有题干和解析');
-  ok.forEach(o=>c.qs.push({id:'u_'+uid(),s:o.s.trim(),a:o.a,x:o.x.trim(),k:o.k.trim()}));
-  if(!S.order.includes(chId))S.order.push(chId);
-  selCh=chId;
-  if(c.builtin)pushCloud();else pushChapters();
-  closeSheet();refreshChrome();renderHome();if(run)renderRun();
-  toast('已入库 '+ok.length+' 题到「'+c.name+'」');
-}
-
-/* ==== 章节导入（JSON） ==== */
-function impBody(d){
-  if(d&&d.chapters){
-    window._imp=d.chapters.filter(c=>c&&c.name&&Array.isArray(c.qs)).map(c=>({...c,icon:c.icon||'📘',qs:c.qs.filter(q=>q.s&&q.x!==undefined).map(q=>({id:'i_'+uid(),s:String(q.s),a:!!q.a,x:String(q.x||''),k:String(q.k||'')}))}));
-    if(!window._imp.length)return '<div class="empty">文件里没找到可用章节（需要 {name, qs:[{s,a,x}]} 结构）</div>';
-    return '<div class="hint" style="margin-bottom:10px">文件中识别到 '+window._imp.length+' 个章节，入库后会成为你账号下的自定义章节：</div>'+window._imp.map((c,i)=>`
-      <div class="imp-item"><span class="badge">章节 ${i+1}</span> <b>${esc(c.name)}</b> ${c.icon}
-      <div style="font-size:12px;color:var(--sub)">${c.qs.length} 题 · 示例：${esc(c.qs[0]?c.qs[0].s.slice(0,26)+'…':'—')}</div></div>`).join('');
-  }
-  return `<div class="hint">可导入他人分享的章节包（JSON），结构与导出文件一致：<br><code>{"chapters":[{"name":"教育心理学 · 第二章","icon":"🧠","qs":[{"s":"题干","a":true,"x":"解析","k":"记忆点"}]}]}</code><br>导入的章节可以像普通章节一样做题、改名、删除。</div>
-  <label class="fl">选择 JSON 文件</label><input type="file" accept=".json" class="fld" onchange="pickImp(event)">
-  <div id="impPickResult"></div>`;
-}
-function pickImp(e){
-  const f=e.target.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=ev=>{try{openSheet('imp',JSON.parse(ev.target.result))}catch(err){$('impPickResult').innerHTML='<div class="imp-item err">文件不是合法 JSON</div>'}};
-  r.readAsText(f);
-}
-function confirmImp(){
-  const list=window._imp||[];
-  list.forEach(c=>{
-    const id='u_'+uid();
-    S.chapters.push({id,name:c.name,icon:c.icon,qs:c.qs});
-    S.order.push(id);
+function bindEvents() {
+  document.getElementById('startCard')?.addEventListener('click', () => { state.view = 'run'; state.qIndex = 0; history.pushState({view:'run'}, '', '#run'); render(); });
+  document.getElementById('starBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    defaultData[state.qIndex].star = !defaultData[state.qIndex].star;
+    render();
   });
-  selCh=S.chapters[S.chapters.length-1].id;
-  pushChapters();closeSheet();refreshChrome();renderHome();
-  toast('导入 '+list.length+' 个章节');window._imp=null;
+  document.querySelectorAll('input[name="a"]').forEach(i => i.addEventListener('change', () => document.getElementById('expBox').classList.add('show')));
 }
 
-/* ==== 数据迁移 ==== */
-function migBody(){
-  return `<div class="line-item" onclick="expAll()"><div class="ic">📤</div><div class="tx"><b>导出全部（题库 + 进度）</b><span>自定义章节、作答、错题、改过的解析</span></div><div class="arw">↓</div></div>
-  <div class="line-item" onclick="expBank()"><div class="ic">📦</div><div class="tx"><b>只导出章节包（分享用）</b><span>不含进度，可发给别人导入</span></div><div class="arw">↓</div></div>
-  <div class="line-item" onclick="document.getElementById('migFile').click()"><div class="ic">📥</div><div class="tx"><b>导入章节包 / 备份</b><span>识别 chapters 字段；含 state 字段时同时恢复进度</span></div><div class="arw">↑</div></div>
-  <input type="file" id="migFile" accept=".json" class="hidden" onchange="impAll(event)">
-  <div class="hint" style="margin-top:10px">云端已自动同步，导出主要用于备份和分享章节。导入章节会追加，不覆盖已有题目。</div>`;
-}
-function dl(obj,name){
-  const b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
-}
-const stamp=()=>new Date().toISOString().slice(0,10);
-function expAll(){
-  dl({v:2,exported_at:new Date().toISOString(),
-    chapters:S.chapters.filter(c=>!c.builtin).map(c=>({name:c.name,icon:c.icon,qs:c.qs})),
-    state:{answers:S.answers,wrong:S.wrong,edits:S.edits,cursor:S.cursor,order:S.order}},
-    '辨析题库_全量备份_'+stamp()+'.json');toast('已导出');
-}
-function expBank(){
-  const c=chById(selCh);
-  dl({v:2,chapters:[{name:c.name,icon:c.icon,qs:c.qs}]},c.name.replace(/\s/g,'')+'_章节包.json');toast('已导出当前章节');
-}
-function impAll(e){
-  const f=e.target.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=ev=>{
-    try{
-      const d=JSON.parse(ev.target.result);
-      if(d.state&&confirm('备份里含作答进度，是否一并恢复到本地？（会覆盖当前进度）')){
-        Object.assign(S.answers,d.state.answers||{});Object.assign(S.wrong,d.state.wrong||{});
-        Object.assign(S.edits,d.state.edits||{});Object.assign(S.cursor,d.state.cursor||{});
-        if(d.state.order&&d.state.order.length)S.order=d.state.order;
-      }
-      closeSheet();
-      if(d.chapters&&d.chapters.length)openSheet('imp',d);
-      else{pushCloud();refreshChrome();renderHome();toast('进度已恢复')}
-    }catch(err){toast('文件解析失败')}
-  };
-  r.readAsText(f);e.target.value='';
+function changeQ(d) {
+  state.qIndex += d;
+  if(state.qIndex < 0) state.qIndex = 0;
+  if(state.qIndex >= defaultData.length) state.qIndex = defaultData.length - 1;
+  render();
 }
 
-/* ==== 账号 ==== */
-function accBody(){
-  return `<div class="usr"><div class="av">${me?(me.email||'U')[0].toUpperCase():'?'}</div>
-    <div class="tx"><b>${me?esc(me.email):'未登录'}</b><span>${me?'数据存于云端，按账号隔离':'仅本机浏览器存储'}</span></div></div>
-  ${me?`<button class="btn-ghost" onclick="logout()">退出登录</button>`:`<button class="btn-primary" onclick="closeSheet();showLogin()">登录 / 注册</button>`}
-  <div class="hint" style="margin-top:10px">登录后，做题进度、错题本、你改过的解析、自建章节都会同步到云端；在另一台设备登录同一账号即可接着做。</div>`;
-}
-async function logout(){await sb.auth.signOut();me=null;location.reload()}
-
-/* ==== 登录 ==== */
-let authMode='login';
-function showLogin(){$('loginView').classList.remove('hidden')}
-function toggleAuthMode(){
-  authMode=authMode==='login'?'signup':'login';
-  $('lgTitle').textContent=authMode==='login'?'欢迎回来':'创建账号';
-  $('lgEmail').value='';$('lgPwd').value='';
-  $('lgGo').textContent=authMode==='login'?'登录':'注册';
-  $('lgSw').textContent=authMode==='login'?'没有账号？去注册':'已有账号？去登录';
-  lgMsg('');cdStop();
-  if(authMode==='signup')$('lgPwd').setAttribute('placeholder','设置密码（至少6位）');
-  else $('lgPwd').setAttribute('placeholder','密码');
-}
-function lgMsg(t,color){const el=$('lgTip');el.textContent=t||'';el.style.color=color||''}
-let cdTimer=null;
-function cdStop(){clearInterval(cdTimer);cdTimer=null;$('lgGo').disabled=false;$('lgSw').classList.remove('hidden')}
-function cdStart(sec){
-  let left=sec;$('lgGo').disabled=true;$('lgSw').classList.add('hidden');
-  const tick=()=>{lgMsg('注册已提交，请 '+left+' 秒后重试（避免触发邮件限制）');$('lgGo').textContent=left+' 秒后可重试';if(--left<0){cdStop();$('lgGo').textContent='注册';lgMsg('还没收到？可换邮箱再试，或稍后直接登录')}};
-  tick();cdTimer=setInterval(tick,1000);
-}
-const FRIENDLY=[
-  [/rate.?limit|429|too many/i,'请求太频繁了，稍等一会儿再试'],
-  [/already (registered|exists)|用户已存在|email already/i,'这个邮箱已经注册过了，直接登录吧'],
-  [/invalid login credentials/i,'邮箱或密码错误'],
-  [/password/i,'密码至少 6 位'],
-  [/network|fetch|Failed to fetch/i,'网络连不上，检查下网络']
-];
-function niceErr(m){const f=FRIENDLY.find(([re])=>re.test(m||''));return f?f[1]:(m||'出错了，稍后再试')}
-async function auth(){
-  if($('lgGo').disabled)return;
-  const e=$('lgEmail').value.trim(),p=$('lgPwd').value;
-  if(!e||!p)return lgMsg('请填写邮箱和密码','#ff7675');
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))return lgMsg('邮箱格式不太对','#ff7675');
-  if(p.length<6)return lgMsg('密码至少 6 位','#ff7675');
-  const btn=$('lgGo');btn.disabled=true;btn.textContent='请稍候…';lgMsg('');
-  let r;
-  try{
-    if(authMode==='login')r=await sb.auth.signInWithPassword({email:e,password:p});
-    else r=await sb.auth.signUp({email:e,password:p});
-  }catch(err){btn.disabled=false;btn.textContent=authMode==='login'?'登录':'注册';return lgMsg(niceErr('network'),'#ff7675')}
-  if(r.error){
-    btn.disabled=false;btn.textContent=authMode==='login'?'登录':'注册';
-    lgMsg(niceErr(r.error.message),'#ff7675');
-    if(authMode==='signup'&&/rate.?limit|429|too many/i.test(r.error.message||''))cdStart(60);
-    return;
-  }
-  if(authMode==='signup'&&r.data.user&&!r.data.session){cdStart(60);return}
-  location.reload();
-}
-async function boot(){
-  loadLocal();
-  if(!S.order||!S.order.length)S.order=S.chapters.map(c=>c.id);
-  selCh=(me?selCh:selCh)||S.order[0];
-  const {data:{user}}=await sb.auth.getUser();
-  if(user){me=user;$('loginView').classList.add('hidden');await pullCloud();if(!chById(selCh))selCh=orderedCh()[0].id}
-  else if(await needLogin()){showLogin();return}
-  selCh=selCh||orderedCh()[0].id;
-  refreshChrome();renderHome();
-}
-async function needLogin(){
-  const {data}=await sb.from('v2_chapters').select('id').limit(1);
-  return false;
-}
-$('sheetOk').onclick=()=>{if(sheetOkFn)sheetOkFn()};
-sheetOkFn=saveEdit;
-/* 键盘快捷键（电脑端） */
-document.addEventListener('keydown',e=>{
-  if(!run||!$('runView').classList.contains('hidden')===false)return;
-  if(curSheet){if(e.key==='Escape')closeSheet();return}
-  if(e.key==='ArrowRight')step(1);
-  if(e.key==='ArrowLeft')step(-1);
-  if(e.key==='1'||e.key==='t'){const q=run.arr[run.idx];if(S.answers[q.id]===undefined)pick(true)}
-  if(e.key==='2'||e.key==='f'){const q=run.arr[run.idx];if(S.answers[q.id]===undefined)pick(false)}
+window.addEventListener('popstate', () => {
+  if(state.view === 'run') { state.view = 'home'; render(); }
+  else { window.location.href = '/'; }
 });
-boot();
+
+render();
 </script>
 </body>
 </html>
