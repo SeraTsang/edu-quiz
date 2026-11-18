@@ -61,12 +61,6 @@ button{font-family:inherit}
 .mode-tx b{font-size:15px;display:block}
 .mode-tx span{font-size:12px;color:var(--sub)}
 .mode-go{color:var(--sub);font-size:13px;flex:0 0 auto}
-.ch-mini{display:flex;gap:8px;overflow-x:auto;padding:2px;margin:0 -2px;scrollbar-width:none}
-.ch-mini::-webkit-scrollbar{display:none}
-.ch-mini div{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:13px;cursor:pointer;white-space:nowrap}
-.ch-mini div.on{background:var(--brand);color:#fff;border-color:var(--brand)}
-.ch-mini button{flex:0 0 auto;border:1px solid var(--line);padding:8px 14px;border-radius:20px;background:#eef0f4;color:#626976;font-size:13px;cursor:pointer}
-.section-head{display:flex;justify-content:space-between;align-items:center;margin:14px 2px 8px}
 .section-head .sec-title{margin:0}
 .small-add{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:0 0 auto;background:#eef0f4;border:1px solid #e1e4eb;border-radius:9px;color:#5b6472;font-size:13px;font-weight:600;padding:7px 10px;cursor:pointer}
 .small-add:active{background:#e2e6ed}
@@ -274,8 +268,7 @@ textarea.fld{min-height:110px;resize:vertical;line-height:1.6}
       <div class="stat"><b id="stRate">—</b><span>正确率</span></div>
     </div>
 
-    <div class="section-head"><div class="sec-title">选择章节</div><button class="small-add" onclick="openChapterModal()">＋ 添加章节</button></div>
-    <div class="ch-mini" id="chMini"></div>
+    <div class="section-head">
 
     <div class="sec-title">练习模式</div>
     <div class="mode-list">
@@ -499,11 +492,7 @@ function renderHome(){
   $('stTotal').textContent=c.qs.length;
   $('stDone').textContent=done;
   $('stRate').textContent=done?pct(right/done)+'%':'—';
-  $('chMini').innerHTML=orderedCh().map(o=>{
-    const d=o.qs.filter(q=>S.answers[q.id]!==undefined).length;
-    return `<div class="${o.id===selCh?'on':''}" onclick="switchCh('${o.id}')">${esc(o.icon)} ${esc(o.name)} ${d?'<b>'+d+'/'+o.qs.length+'</b>':''}</div>`;
-  }).join('');
-  ['chapter','seq','rand','wrong'].forEach(m=>$( 'md-'+m).classList.toggle('picked',mode===m));
+    ['chapter','seq','rand','wrong'].forEach(m=>$( 'md-'+m).classList.toggle('picked',mode===m));
   const wc=c.qs.filter(q=>S.wrong[q.id]).length;
   const fc=c.qs.filter(q=>S.favorites[q.id]).length;
   const total=reviewList(selCh).length;
