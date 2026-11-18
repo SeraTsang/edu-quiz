@@ -93,12 +93,13 @@ button{font-family:inherit}
 .tag.gray{background:#f0f1f6;color:var(--sub)}
 .tag.orange{background:#fff3e6;color:#e67e22}
 .q-card{background:var(--card);border-radius:var(--radius);padding:18px 16px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
-.q-head{display:flex;align-items:flex-start;gap:8px;margin-bottom:16px}
+.q-head{display:flex;align-items:flex-start;gap:8px;margin-bottom:16px;min-height:44vh;min-height:44dvh;}
 .q-stem{flex:1;min-width:0;font-size:17px;font-weight:600;line-height:1.65}
 .fav-btn{flex:0 0 38px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:10px;background:#fff;color:#b5bac6;font-size:23px;line-height:1;cursor:pointer}
 .fav-btn.on{color:#d89a13;background:#fff8df;border-color:#f5dc9b}
 .fav-btn:active{transform:scale(.94)}
-.judge{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.judge{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:14px;}
+.judge button{width:100%;min-height:54px;}
 .judge button{height:52px;border:2px solid var(--line);border-radius:12px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;gap:6px}
 .judge button:active{transform:scale(.97)}
 .judge button.T.ok{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
@@ -115,7 +116,39 @@ button{font-family:inherit}
 .ana-edit{position:absolute;right:8px;bottom:8px;border:none;background:#eceef4;color:#7a8093;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;opacity:.55}
 .ana-edit:active{opacity:1}
 /* 底部操作条：始终可见，不下拉 */
-.dock{position:sticky;bottom:0;display:flex;align-items:center;gap:8px;padding:10px 0 calc(10px + var(--safe));margin-top:12px;background:linear-gradient(to top,var(--bg) 70%,rgba(245,246,250,0))}
+
+/* 做题页：固定底部导航栏 */
+.dock{
+  position:fixed;
+  bottom:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:calc(100% - 24px);
+  max-width:536px;
+  z-index:35;
+
+  display:flex;
+  align-items:center;
+  gap:8px;
+
+  padding:10px 0 calc(10px + var(--safe));
+  margin-top:0;
+  background:var(--bg);
+  border-top:1px solid var(--line);
+}
+
+/* 桌面端适配 */
+@media(min-width:820px){
+  .dock{
+    max-width:836px;
+  }
+}
+
+/* 为固定导航栏预留空间，防止遮挡解析 */
+#runView{
+  padding-bottom:calc(90px + var(--safe));
+}
+
 .dock .icon-btn{background:#fff;border:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.05)}
 .dock .nav{flex:1;height:40px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:14px;cursor:pointer}
 .dock .nav:disabled{opacity:.4}
@@ -952,6 +985,57 @@ async function needLogin(){
   return false;
 }
 $('sheetOk').onclick=()=>{if(sheetOkFn)sheetOkFn()};
+
+/* ==== 手机左右滑动切题 ==== */
+let swipeStart = null;
+
+const swipeArea = document.getElementById('runView');
+
+swipeArea.addEventListener('touchstart', e => {
+  swipeStart = null;
+
+  // 仅处理单指滑动
+  if (!run || e.touches.length !== 1) return;
+
+  // 弹窗打开时不切题
+  if (document.getElementById('mask').classList.contains('on')) return;
+  if (!document.getElementById('chapterOverlay').classList.contains('hidden')) return;
+
+  // 按钮、输入框等交互区域不触发滑动
+  if (e.target.closest('button,input,textarea,select,a,.dock')) return;
+
+  const t = e.touches[0];
+
+  swipeStart = {
+    x: t.clientX,
+    y: t.clientY
+  };
+}, {passive:true});
+
+swipeArea.addEventListener('touchend', e => {
+  if (!swipeStart || !run) return;
+
+  const t = e.changedTouches[0];
+  const dx = t.clientX - swipeStart.x;
+  const dy = t.clientY - swipeStart.y;
+
+  swipeStart = null;
+
+  // 水平移动超过70px，且主要为水平滑动
+  if (Math.abs(dx) < 70) return;
+  if (Math.abs(dx) < Math.abs(dy) * 1.5) return;
+
+  if (dx < 0) {
+    step(1);   // 左滑：下一题
+  } else {
+    step(-1);  // 右滑：上一题
+  }
+}, {passive:true});
+
+swipeArea.addEventListener('touchcancel', () => {
+  swipeStart = null;
+});
+
 /* 键盘快捷键（电脑端） */
 document.addEventListener('keydown',e=>{
   if(!$('chapterOverlay').classList.contains('hidden')){
