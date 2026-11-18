@@ -107,6 +107,8 @@ button{font-family:inherit}
 .ana p{margin-bottom:8px}
 .ana p:last-child{margin-bottom:0}
 .ana .key{display:inline-block;background:#eeedfb;color:var(--brand);font-weight:600;padding:1px 6px;border-radius:4px;font-size:13px;margin:1px 0}
+.ana .point-label{font-size:12px;color:var(--sub);margin-bottom:10px;border-bottom:1px dashed var(--line);padding-bottom:8px}
+.ana .point-label b{color:var(--brand);font-weight:600;margin-right:6px}
 .ana-edit{position:absolute;right:8px;bottom:8px;border:none;background:#eceef4;color:#7a8093;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;opacity:.55}
 .ana-edit:active{opacity:1}
 /* 底部操作条：始终可见，不下拉 */
@@ -268,8 +270,6 @@ textarea.fld{min-height:110px;resize:vertical;line-height:1.6}
       <div class="stat"><b id="stRate">—</b><span>正确率</span></div>
     </div>
 
-    <div class="section-head">
-
     <div class="sec-title">练习模式</div>
     <div class="mode-list">
       <button type="button" class="mode-card" id="md-chapter" onclick="pickMode('chapter')">
@@ -411,6 +411,13 @@ async function pullCloud(){
     const d=st.data;
     S.answers=d.answers||{};S.wrong=d.wrong||{};S.favorites=d.favorites||S.favorites||{};S.edits=d.edits||{};S.last=d.last||{};S.cursor=d.cursor||{};
     if(d.order&&d.order.length)S.order=d.order;
+    // Built-in chapter additions were previously local-only; merge them from the account state.
+    Object.entries(d.builtinAdditions||{}).forEach(([id,items])=>{
+      const c=S.chapters.find(ch=>ch.id===id&&ch.builtin);
+      if(!c||!Array.isArray(items))return;
+      const have=new Set(c.qs.map(q=>q.id));
+      items.forEach(q=>{if(q&&q.id&&!have.has(q.id)){c.qs.push(q);have.add(q.id)}});
+    });
   }
   if(cs&&cs.length){
     const custom=cs.map(r=>({id:r.id,name:r.name,icon:r.icon||'📘',qs:r.questions||[]}));
@@ -428,7 +435,8 @@ function pushCloud(){
   clearTimeout(pushTimer);
   pushTimer=setTimeout(async()=>{
     await sb.from('v2_state').upsert({user_id:me.id,data:{
-      answers:S.answers,wrong:S.wrong,favorites:S.favorites,edits:S.edits,last:S.last,cursor:S.cursor,order:S.order
+      answers:S.answers,wrong:S.wrong,favorites:S.favorites,edits:S.edits,last:S.last,cursor:S.cursor,order:S.order,
+      builtinAdditions:Object.fromEntries(S.chapters.filter(c=>c.builtin).map(c=>[c.id,c.qs.filter(q=>!/^b\d+$/.test(q.id))]))
     },updated_at:new Date().toISOString()});
   },600);
 }
@@ -565,8 +573,10 @@ function renderRun(){
   const q=run.arr[run.idx],c=chById(run.chId);
   if(!q||!c)return;
   const ans=currentAnswer(q),done=ans!==undefined,ok=ans===q.a;
-  const txt=(S.edits[q.id]!==undefined?S.edits[q.id]:q.x)||'';
-  const ktxt=S.edits[q.id]!==undefined?'':(q.k||'');
+  const override=S.edits[q.id];
+  const txt=(typeof override==='string'?override:(override?.x??q.x))||'';
+  const ktxt=(typeof override==='string'?'':(override?.k??q.k))||'';
+  const gtxt=(typeof override==='string'?q.g:(override?.g??q.g))||'';
   $('runProgTx').textContent=(run.idx+1)+' / '+run.arr.length;
   const cDone=c.qs.filter(x=>S.answers[x.id]!==undefined).length;
   $('runRateTx').textContent='本章 '+cDone+'/'+c.qs.length;
@@ -585,7 +595,7 @@ function renderRun(){
       <button class="F ${cls(false)}" onclick="pick(false)" ${done?'disabled':''}>✗ 错误</button>
     </div>
     ${done?`<div class="verdict ${ok?'right':'wrong'}">${ok?'✓ 答对了':'✗ 答错了'} · 正确答案：${q.a?'正确':'错误'}</div>
-    <div class="ana">${fmtAna(txt)}${ktxt?`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #dcdce6"><span class="key">记忆点</span> ${fmtAna(ktxt)}</div>`:''}
+    <div class="ana">${gtxt?`<div class="point-label"><b>考点</b>${esc(gtxt)}</div>`:''}${fmtAna(txt)}${ktxt?`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #dcdce6"><span class="key">记忆点</span> ${fmtAna(ktxt)}</div>`:''}
     <button class="ana-edit" onclick="askEdit()">✎ 改解析</button></div>`:''}`;
 }
 function toggleFavorite(){
@@ -727,16 +737,24 @@ function jump(i){run.idx=i;closeSheet();renderRun();$('main').scrollTop=0}
 let editTarget=null;
 function editBody(qid){
   editTarget=qid;const q=run.arr[run.idx];
-  const cur=S.edits[qid]!==undefined?S.edits[qid]:(q.x+(q.k?'\n\n【记忆点】'+q.k:''));
-  return `<div class="hint" style="margin-bottom:10px;background:#fff8e8;color:#8a6d2f">你正在修改这道题的解析。保存后只对你自己生效，可用\*\*关键词\*\*标出重点。想恢复原解析，把内容清空再保存即可。</div>
+  const override=S.edits[qid];
+  const cur=typeof override==='string'?override:(override?.x??q.x);
+  const g=typeof override==='string'?(q.g||''):(override?.g??q.g??'');
+  const k=typeof override==='string'?'':(override?.k??q.k??'');
+  return `<div class="hint" style="margin-bottom:10px">考点、解析和记忆点分别保存。使用 **关键词** 标注解析重点；清空解析并保存可恢复原文。</div>
   <div style="font-size:13px;color:var(--sub);margin-bottom:6px">${esc(q.s)}</div>
-  <textarea class="fld" id="editTa" style="min-height:180px">${esc(cur)}</textarea>`;
+  <label class="fl">考点（可选）</label><input class="fld" id="editG" value="${esc(g)}">
+  <label class="fl">解析</label><textarea class="fld" id="editTa" style="min-height:160px">${esc(cur)}</textarea>
+  <label class="fl">记忆点（可选）</label><textarea class="fld" id="editK" style="min-height:70px">${esc(k)}</textarea>`;
 }
 sheetOkFn=()=>{};
 function saveEdit(){
-  const v=$('editTa').value.trim();
-  if(!v){if(confirm('内容为空，恢复为原始解析？')){delete S.edits[editTarget];pushCloud();closeSheet();renderRun();toast('已恢复原解析')}return}
-  S.edits[editTarget]=v;pushCloud();closeSheet();renderRun();toast('解析已更新');
+  const v=$('editTa').value.trim(),g=$('editG').value.trim(),k=$('editK').value.trim();
+  if(!v){if(confirm('内容为空，恢复为原始解析、考点和记忆点？')){delete S.edits[editTarget];pushCloud();closeSheet();renderRun();toast('已恢复原解析')}return}
+  const q=run.arr[run.idx];
+  if(v===q.x&&g===(q.g||'')&&k===(q.k||''))delete S.edits[editTarget];
+  else S.edits[editTarget]={x:v,g,k};
+  pushCloud();closeSheet();renderRun();toast('已保存');
 }
 
 /* ==== 录入 ==== */
@@ -745,57 +763,91 @@ function entryBody(){
   parsed=[];
   return `<label class="fl">归入章节</label>
   <div class="entry-ch-row"><select class="fld" id="entCh">${orderedCh().map(c=>`<option value="${c.id}" ${c.id===selCh?'selected':''}>${esc(c.icon)} ${esc(c.name)}（${c.qs.length}题）</option>`).join('')}</select><button class="small-add" onclick="openChapterModal()" title="新增章节">＋ 新增</button></div>
-  <label class="fl">粘贴解析（支持一次多条，空行分隔）</label>
-  <textarea class="fld" id="entRaw" placeholder="【题干】老师担心讲授的知识学生无法掌握，这体现了什么矛盾？
-【解析】本题考查教育的基本要素。教育最基本的矛盾是受教育者与教育内容的矛盾。故正确答案为C。"></textarea>
-  <div class="hint" style="margin-top:8px">
-    推荐格式：<code>【题干】…</code> + <code>【解析】…</code>，一条题一个空行。<br>
-    只粘解析也行，系统会自动去掉"本题考查/题干中/故正确答案为X"等套话，题干留空你自己补。
-  </div>
+  <label class="fl">粘贴 AI 整理后的辨析题（多题以空行分隔）</label>
+  <textarea class="fld" id="entRaw" placeholder="【考点】教育影响的内涵
+【题干】教育影响包括教育内容和教育手段。
+【解析】该说法正确，教育内容回答教什么，教育手段回答怎么教。
+【记忆点】教育影响＝内容＋手段。
+【判定】正确"></textarea>
+  <div class="hint" style="margin-top:8px">支持 <code>【考点】</code> <code>【题干】</code> <code>【解析】</code> <code>【记忆点】</code> <code>【判定】</code> 分字段解析，也兼容 <code>记忆点：</code>、<code>判定：</code> 的旧格式。缺少题干或判定时可在预览里补充。所有字段将分别保存。</div>
   <div id="entPrev"></div>`;
 }
 function parseEntry(){
-  const chId=$('entCh').value,raw=$('entRaw').value.trim();
+  const raw=$('entRaw').value.trim();
   if(!raw)return toast('先粘贴内容');
-  parsed=raw.split(/\n[ \t]*\n/).map(cleanQ).filter(o=>o.s||o.x);
+  parsed=raw.replace(/\r\n?/g,'\n').split(/\n[ \t]*\n/).map(cleanQ).filter(o=>o.s||o.x||o.k||o.g);
   if(!parsed.length)return toast('没识别到内容，检查格式');
-  $('entPrev').innerHTML='<div class="hint" style="margin-top:10px">识别到 '+parsed.length+' 条，核对后入库（答案默认按"故正确/错误"推断，务必确认）：</div>'+parsed.map((o,i)=>`
+  const undetermined=parsed.filter(o=>o.a===null).length;
+  $('entPrev').innerHTML='<div class="hint" style="margin-top:10px">识别到 '+parsed.length+' 条。考点、解析与记忆点已分离。'+(undetermined?'其中 '+undetermined+' 条未明确标注判定，请手动选择正确/错误。':'请核对答案后入库。')+'</div>'+parsed.map((o,i)=>`
     <div class="prev">
-      <div class="pt">第 ${i+1} 条 <span class="badge">${esc(o.g||'未识别考点')}</span></div>
-      <input class="fld" placeholder="题干（必填）" value="${esc(o.s)}" oninput="parsed[${i}].s=this.value">
-      <div class="pa"><button class="${o.a?'on':''}" onclick="setAns(${i},true,this)">✓ 正确</button><button class="${!o.a?'on':''}" onclick="setAns(${i},false,this)">✗ 错误</button></div>
+      <div class="pt">第 ${i+1} 条 ${o.a===null?'<span class="badge" style="background:#fff3e6;color:#d26a13">待选择答案</span>':''}</div>
+      <label class="fl">考点</label>
+      <input class="fld" placeholder="如：教育影响的内涵（可选）" value="${esc(o.g)}" oninput="parsed[${i}].g=this.value">
+      <label class="fl">题干（必填）</label>
+      <textarea class="fld" style="min-height:60px" placeholder="题干（必填）" oninput="parsed[${i}].s=this.value">${esc(o.s)}</textarea>
+      <div class="pa" style="margin-top:8px"><button class="${o.a===true?'on':''}" onclick="setAns(${i},true,this)">✓ 正确</button><button class="${o.a===false?'on':''}" onclick="setAns(${i},false,this)">✗ 错误</button></div>
+      <label class="fl">解析（必填）</label>
       <textarea class="fld" placeholder="解析" oninput="parsed[${i}].x=this.value">${esc(o.x)}</textarea>
-      <input class="fld" style="margin-top:6px" placeholder="记忆点（可选）" value="${esc(o.k)}" oninput="parsed[${i}].k=this.value">
+      <label class="fl">记忆点</label>
+      <textarea class="fld" style="min-height:65px" placeholder="记忆点（可选）" oninput="parsed[${i}].k=this.value">${esc(o.k)}</textarea>
     </div>`).join('');
   $('sheetOk').textContent='确认入库 '+parsed.length+' 条';
   sheetOkFn=confirmEntry;
 }
 function setAns(i,v,btn){parsed[i].a=v;btn.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on')}
+// One label must occupy the start of a line; mentions of "记忆点" inside the explanation are not mistaken for a label.
 function cleanQ(blk){
-  let s='',rest=blk;
-  const sm=blk.match(/【题干】\s*([\s\S]*?)(?=\n\s*【解析】|$)/);
-  if(sm){s=sm[1].trim();rest=(blk.match(/【解析】\s*([\s\S]*)/)||[,''])[1]}
-  let x=rest.replace(/^\s*【解析】\s*/,'').trim();
-  const am=x.match(/故正确答案为\s*([A-D])[。．.]?\s*$/);
-  const g=(x.match(/本题考查([^。，,、\s]{2,12})/)||[,''])[1];
-  x=x.split('\n').map(l=>l.replace(/^\s*(本题考查|题干中|题干|因此|所以)[^。]{0,40}。\s*/,'').replace(/故正确答案为\s*[A-D][。．.]?\s*$/,'').replace(/[ \t]+/g,' ').trim()).filter(Boolean).join('\n');
+  const fields={s:'',x:'',k:'',g:'',a:null};
+  const labels={'题干':'s','解析':'x','记忆点':'k','考点':'g','判定':'a','答案':'a'};
+  let section='x',answerText='';
+  const append=(key,text)=>{
+    if(key==='a'){answerText=(answerText+' '+text).trim();return}
+    fields[key]+=(fields[key]?'\n':'')+text;
+  };
+  String(blk).replace(/\r\n?/g,'\n').split('\n').forEach(line=>{
+    const m=line.match(/^\s*(?:【\s*(题干|解析|记忆点|考点|判定|答案)\s*】|(题干|解析|记忆点|考点|判定|答案)\s*[：:])\s*(.*)$/);
+    if(m){
+      const label=m[1]||m[2];
+      section=labels[label];
+      append(section,m[3].trim());
+    }else append(section,line.trim());
+  });
+  let {s,x,k,g}=fields;
+  s=s.trim();x=x.trim();k=k.trim();g=g.trim();
+  // In old copied explanations, infer a *possible* knowledge point only from explicit text.
+  if(!g){
+    const hit=x.match(/(?:^|\n)本题考查\s*(?:的是|了)?\s*([^。，；;\n]{2,24})/);
+    if(hit)g=hit[1].trim();
+    else{
+      const bold=x.match(/\*\*([^*\n]{2,20})\*\*/);
+      if(bold)g=bold[1].trim();
+    }
+  }
+  // Explicit judgment has priority; never translate a source multiple-choice letter into true/false.
+  const truth=t=>{
+    const m=String(t).trim().match(/^(正确|错误|对|错|√|✓|×|✗)(?=$|[\s。．.!！、，,])/);
+    return m?['正确','对','√','✓'].includes(m[1]):null;
+  };
+  let a=truth(answerText);
+  if(a===null){
+    const m=x.match(/^(?:该说法|该观点|本题|此说法)?\s*(正确|错误)(?=[。！!，,\s]|$)/);
+    if(m)a=m[1]==='正确';
+  }
+  x=x.split('\n').map(l=>l.replace(/^\s*(本题考查|题干中|题干|因此|所以)[^。]{0,40}。\s*/,'').replace(/故正确答案为\s*[A-D][。．.]?\s*$/,'').trim()).filter(Boolean).join('\n');
   x=x.replace(/[\uFFFD\u25A1]+/g,'').trim();
-  let a=true;
-  if(am)a=/[AC]/i.test(am[1]);
-  else if(/正确|对\s*$|√/.test(x.slice(-12)))a=true;
-  else if(/错误|错\s*$|×|✗/.test(x.slice(-12)))a=false;
-  return{s,a,x,k:'',g};
+  return{s,a,x,k,g};
 }
 function confirmEntry(){
   const chId=$('entCh').value,c=chById(chId);
-  const ok=parsed.filter(o=>o.s.trim()&&o.x.trim());
-  if(!ok.length)return toast('每条都要有题干和解析');
-  ok.forEach(o=>c.qs.push({id:'u_'+uid(),s:o.s.trim(),a:o.a,x:o.x.trim(),k:o.k.trim()}));
+  if(!c)return toast('请先选择章节');
+  const invalid=parsed.findIndex(o=>!o.s.trim()||!o.x.trim()||typeof o.a!=='boolean');
+  if(invalid>=0)return toast('第 '+(invalid+1)+' 条缺少题干、解析或明确的正确/错误判定');
+  parsed.forEach(o=>c.qs.push({id:'u_'+uid(),s:o.s.trim(),a:o.a,x:o.x.trim(),k:o.k.trim(),g:o.g.trim()}));
   if(!S.order.includes(chId))S.order.push(chId);
   selCh=chId;
   if(c.builtin)pushCloud();else pushChapters();
   closeSheet();refreshChrome();renderHome();if(run)renderRun();
-  toast('已入库 '+ok.length+' 题到「'+c.name+'」');
+  toast('已入库 '+parsed.length+' 题到「'+c.name+'」');
 }
 
 /* ==== 章节导入（JSON） ==== */
@@ -807,7 +859,7 @@ function impBody(d){
       qs:c.qs.filter(q=>q.s&&q.x!==undefined).map(q=>{
         const newId='i_'+uid();
         if(window._restoreProgress&&q.id)window._impIdMap[q.id]=newId;
-        return{id:newId,s:String(q.s),a:!!q.a,x:String(q.x||''),k:String(q.k||'')};
+        return{id:newId,s:String(q.s),a:q.a===true||q.a==='true',x:String(q.x||''),k:String(q.k||''),g:String(q.g||'')};
       })
     }));
     if(!window._imp.length)return '<div class="empty">文件里没找到可用章节（需要 {name, qs:[{s,a,x}]} 结构）</div>';
@@ -815,7 +867,7 @@ function impBody(d){
       <div class="imp-item"><span class="badge">章节 ${i+1}</span> <b>${esc(c.name)}</b> ${esc(c.icon)}
       <div style="font-size:12px;color:var(--sub)">${c.qs.length} 题 · 示例：${esc(c.qs[0]?c.qs[0].s.slice(0,26)+'…':'—')}</div></div>`).join('');
   }
-  return `<div class="hint">可导入他人分享的章节包（JSON），结构与导出文件一致：<br><code>{"chapters":[{"name":"教育心理学 · 第二章","icon":"🧠","qs":[{"s":"题干","a":true,"x":"解析","k":"记忆点"}]}]}</code><br>导入的章节可以像普通章节一样做题、删除。</div>
+  return `<div class="hint">可导入他人分享的章节包（JSON），结构与导出文件一致：<br><code>{"chapters":[{"name":"教育心理学 · 第二章","icon":"🧠","qs":[{"s":"题干","a":true,"x":"解析","k":"记忆点","g":"考点"}]}]}</code><br>导入的章节可以像普通章节一样做题、删除。</div>
   <label class="fl">选择 JSON 文件</label><input type="file" accept=".json" class="fld" onchange="pickImp(event)">
   <div id="impPickResult"></div>`;
 }
